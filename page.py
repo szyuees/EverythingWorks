@@ -7,7 +7,7 @@ logging.basicConfig(
     format="%(levelname)s | %(name)s | %(message)s",
     level=logging.INFO
 )
-logger = logging.getLogger(name)
+logger = logging.getLogger(__name__)
 logger.info("Using DuckDuckGo for web search and AWS Bedrock model via Strands")
 
 # --- Gradio interface ---
