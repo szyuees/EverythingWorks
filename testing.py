@@ -9,9 +9,9 @@ Features:
 - Multi-agent workflow: Property Search -> Filter & Rank -> Writer
 - Uses CPU-compatible libraries for Windows
 """
-python -m venv .venv
-source .venv/bin/activate
-pip install strands-agents strands-agents-tools
+#python -m venv .venv
+#source .venv/bin/activate
+#pip install strands-agents strands-agents-tools
 
 
 
