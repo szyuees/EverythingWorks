@@ -1,6 +1,7 @@
 import gradio as gr
 from agents.orchestrator_agent import orchestrator
 import logging
+import boto3
 
 # --- Logging (your setup) ---
 logging.basicConfig(

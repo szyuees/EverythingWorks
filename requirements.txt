@@ -2,3 +2,10 @@ strands-agents
 strands-agents-tools
 duckduckgo-search
 gradio
+pandas 
+pyyaml 
+pytest 
+python-dotenv 
+loguru
+sentence-transformers 
+faiss-cpu
