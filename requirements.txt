@@ -7,5 +7,17 @@ pyyaml
 pytest 
 python-dotenv 
 loguru
+boto3
+requests
+
+# New RAG dependencies
+chromadb>=0.4.0
+sentence-transformers>=2.2.0
+numpy>=1.21.0
+pandas>=1.3.0
+
+# Enhanced UI dependencies  
+plotly>=5.0.0
 sentence-transformers 
 faiss-cpu
+
