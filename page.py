@@ -10,11 +10,31 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 logger.info("Using DuckDuckGo for web search and AWS Bedrock model via Strands")
 
+class ChatbotWithHistory:
+    def __init__(self, agent):
+        self.agent = agent
+        self.history = []
+
+    def ask(self, user_message: str):
+        self.history.append(("user", user_message))
+
+        conversation = ""
+        for role, msg in self.history:
+            conversation += f"{role.upper()}: {msg}\n"
+
+        response = self.agent(conversation)
+
+        self.history.append(("assistant", response))
+
+        return response
+    
+chatbot = ChatbotWithHistory(orchestrator)
+
 # --- Gradio interface ---
 def chat_with_housing_bot(user_input):
     logger.info(f"User query: {user_input}")
     try:
-        response = orchestrator(user_input)
+        response = chatbot.ask(user_input)
         logger.info(f"Response: {response}")
         return response
     except Exception as e:
