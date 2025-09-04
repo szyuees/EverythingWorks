@@ -21,3 +21,39 @@ plotly>=5.0.0
 sentence-transformers 
 faiss-cpu
 
+
+# Core agent framework
+strands-agents>=0.1.0
+strands-agents-tools>=0.1.0
+
+# Web search and HTTP
+duckduckgo-search>=3.8.0
+requests>=2.31.0
+
+# UI Framework  
+gradio>=4.0.0
+
+# Data processing
+pandas>=1.3.0
+pyyaml>=6.0
+numpy>=1.21.0
+
+# Development and testing
+pytest>=7.0.0
+python-dotenv>=1.0.0
+loguru>=0.7.0
+
+# AWS integration
+boto3>=1.26.0
+
+# RAG System Dependencies (optional but recommended)
+chromadb>=0.4.0
+sentence-transformers>=2.2.0
+faiss-cpu>=1.7.0
+
+# Enhanced visualization (optional)
+plotly>=5.0.0
+
+# Additional utilities
+typing-extensions>=4.5.0
+
