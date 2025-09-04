@@ -3,6 +3,7 @@ import numpy as np
 from typing import Dict, List, Any, Tuple
 from dataclasses import dataclass
 from enum import Enum
+from aws_session import session
 
 class DecisionFactor(Enum):
     AFFORDABILITY = "affordability"
@@ -282,7 +283,7 @@ class DecisionSupportEngine:
         return steps
 
 # Integration tool for agents
-@tool
+#@tool this is supposed to be uncommented but it causes issues with the current setup
 def analyze_housing_decision(properties_data: List[Dict], user_profile: Dict) -> str:
     """Analyze housing options and provide decision support"""
     

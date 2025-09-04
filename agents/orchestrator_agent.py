@@ -1,5 +1,6 @@
 from strands import Agent, tool
 import logging
+from aws_session import session
 
 # Import agents with error handling
 try:

@@ -1,9 +1,13 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import gradio as gr
 from agents.orchestrator_agent import orchestrator
 import logging
 import boto3
 from datetime import datetime
 import json
+
 
 # Import new core systems
 from core.mcp_context_manager import MCPContextManager

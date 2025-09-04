@@ -3,6 +3,7 @@ from duckduckgo_search import DDGS
 import requests
 import logging
 import os
+from aws_session import session
 
 # RAG imports with error handling
 try:
