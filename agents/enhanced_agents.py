@@ -274,7 +274,8 @@ def chat_with_enhanced_housing_bot(user_input, session_state):
         logger.error(traceback.format_exc())
         error_response = f"I encountered an error: {str(e)}\n\nPlease try rephrasing your question or contact support if the issue persists."
         return error_response, session_state
-
+    
+'''
 # Create enhanced interface with better error handling
 with gr.Blocks(title="Enhanced Singapore Housing Assistant", theme=gr.themes.Soft()) as iface:
     
@@ -404,3 +405,4 @@ if __name__ == "__main__":
                 iface.close()
         except:
             pass
+'''

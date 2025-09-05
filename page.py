@@ -135,7 +135,8 @@ class EnhancedChatbotWithContext:
                 
                 if missing_info:
                     completion_note = f"\n\n💡 **To provide better recommendations**: Share your {', '.join(missing_info[:2])}"
-                    response += completion_note
+                    # Corrected line: Convert response to string before concatenation
+                    response = str(response) + completion_note
             
             return response
             
@@ -181,123 +182,115 @@ else:
     
     chatbot = BasicChatbot(orchestrator)
 
-# --- Enhanced Gradio Interface ---
-def chat_with_enhanced_housing_bot(user_input, session_state):
-    """Enhanced chat function with session management"""
+# --- Enhanced Gradio Interface with Custom Layout ---
+with gr.Blocks(
+    title="Enhanced Singapore Housing Assistant",
+    theme=gr.themes.Soft(primary_hue="indigo", secondary_hue="blue")
+) as iface:
     
-    if not user_input.strip():
-        return "", session_state
-    
-    # Create session ID if new
-    if not session_state:
-        session_state = f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
-    
-    logger.info(f"Session {session_state}: {user_input}")
-    
-    try:
-        response = chatbot.ask(user_input, user_id=session_state)
-        
-        logger.info(f"Session {session_state} Response: {response[:100]}...")
-        return response, session_state
-        
-    except Exception as e:
-        logger.error(f"Session {session_state} Error: {e}")
-        error_response = f"I encountered an error: {str(e)}\n\nPlease try rephrasing your question or contact support if the issue persists."
-        return error_response, session_state
-
-# Create enhanced interface
-with gr.Blocks(title="Enhanced Singapore Housing Assistant", theme=gr.themes.Soft()) as iface:
-    
+    # Header
     gr.HTML("""
-    <div style="text-align: center; padding: 20px;">
-        <h1>🏠 Enhanced Singapore Housing Assistant</h1>
-        <p style="font-size: 18px; color: #666;">
-            AI-powered housing guidance with personalized recommendations and comprehensive knowledge base
-        </p>
+    <div style="text-align: center; padding: 20px; background: linear-gradient(90deg, #4f46e5, #3b82f6); color: white; border-radius: 12px; margin-bottom: 20px;">
+        <h1 style="margin: 0; font-size: 2em;">🏠 Enhanced Singapore Housing Assistant</h1>
+        <p style="font-size: 18px; margin: 5px 0 0;">AI-powered housing guidance with personalisation, context memory, and real-time insights</p>
     </div>
     """)
-    
+
     with gr.Row():
+        # Main conversation area
         with gr.Column(scale=3):
             chatbot_interface = gr.Chatbot(
-                type='messages',
-                label="Housing Assistant Conversation",
+                type="messages",
+                label="💬 Chat with Housing Assistant",
                 height=500,
                 show_label=True,
+                avatar_images=("🧑", "🤖")
             )
             
             user_input = gr.Textbox(
-                label="Your Message",
-                placeholder="Ask about housing grants, property search, eligibility requirements, or any housing-related questions...",
+                placeholder="Type your housing question here (e.g., 'What grants do I qualify for?')",
                 lines=3,
-                show_label=True
+                autofocus=True,
+                show_label=False
             )
             
             with gr.Row():
-                submit_btn = gr.Button("Send Message", variant="primary", size="lg")
-                clear_btn = gr.Button("New Conversation", variant="secondary")
-        
+                submit_btn = gr.Button("🚀 Send", variant="primary")
+                clear_btn = gr.Button("🔄 New Conversation", variant="secondary")
+
+        # Sidebar with guidance & context
         with gr.Column(scale=1):
             gr.Markdown("### 🎯 Quick Start")
-            
             sample_buttons = [
                 "What housing grants am I eligible for as a Singapore citizen?",
                 "Help me find a 4-room HDB flat in Tampines under $500k",
                 "I earn $6000/month, what's my housing budget?",
                 "Compare BTO vs resale HDB flats"
             ]
-            
             for sample_query in sample_buttons:
-                gr.Button(
-                    sample_query, 
-                    size="sm"
-                ).click(
+                gr.Button(sample_query, size="sm").click(
                     lambda q=sample_query: q,
                     outputs=user_input
                 )
             
-            gr.Markdown("### ℹ️ Features")
+            gr.Markdown("### 📊 Profile Progress")
+            profile_progress = gr.Label("Loading context...")
+            
+            gr.Markdown("### ⚡ Features")
             gr.Markdown("""
-            - **Smart Context**: Remembers your preferences
-            - **RAG Knowledge**: Official HDB/CPF information  
-            - **Decision Support**: AI-powered recommendations
-            - **Real-time Search**: Current property listings
+            - ✅ Remembers your **citizenship, income, locations**
+            - 📚 Uses **official HDB/CPF sources**
+            - 💡 Compares **BTO, resale, and private options**
+            - 🔍 Real-time property listing support
             """)
-    
+
     # Session state
     session_state = gr.State()
-    
+    history_state = gr.State([])
+
+    # Chat handler
     def process_chat(message, history, session_id):
-        if not message or not message.strip():
-            return history, "", session_id
-    
+        if not message.strip():
+            return history, "", session_id, "⚠️ No input given."
+        
         try:
-        # Initialize history if None
             history = history or []
-        
-        # Add user message to history with None for bot response
-            history.append([message, None])
-        
-        # Get response from chatbot
+            
+            # Append user message with 'role' and 'content'
+            history.append({'role': 'user', 'content': message})
+
+            # Call your chatbot logic
             response = chatbot.ask(message, user_id=session_id)
-        
-        # Ensure response is properly formatted for Gradio Chatbot
-        # Convert to string and handle any AgentResult objects
-            if hasattr(response, 'content'):
-                response_text = str(response.content)
-            elif hasattr(response, 'text'):
-                response_text = str(response.text)
-            else:
-                response_text = str(response)
-        
-        # Update the last message with the bot's response
-            history[-1][1] = response_text
-        
-            return history, "", session_id
-        
+            
+            # Extract the response text safely
+            response_text = str(getattr(response, "content", getattr(response, "text", response)))
+            
+            # Append bot response with 'role' and 'content'
+            history.append({'role': 'assistant', 'content': response_text})
+
+            # Update context progress
+            context = context_manager.get_user_context(session_id)
+            completion = context.get("completion_score", 0)
+            progress_label = f"Profile completion: {completion:.0%}"
+            
+            return history, "", session_id, progress_label
+            
         except Exception as e:
             logger.error(f"Error in process_chat: {e}")
-        # Ensure we still return proper format even on error
-            if history and len(history) > 0:
-                history[-1][1] = f"Error processing your message: {str(e)}"
-            return history, "", session_id
+            history.append({'role': 'assistant', 'content': f"❌ Error: {str(e)}"})
+            return history, "", session_id, "⚠️ Error fetching profile progress"
+
+    # Events
+    submit_btn.click(
+        process_chat,
+        inputs=[user_input, chatbot_interface, session_state],
+        outputs=[chatbot_interface, user_input, session_state, profile_progress]
+    )
+
+    clear_btn.click(
+        lambda: ([], "", f"session_{datetime.now().strftime('%Y%m%d_%H%M%S')}", "Profile reset"),
+        inputs=None,
+        outputs=[chatbot_interface, user_input, session_state, profile_progress]
+    )
+if __name__ == "__main__":
+    iface.launch(server_name="0.0.0.0", server_port=7860)
