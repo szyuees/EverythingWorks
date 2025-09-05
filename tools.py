@@ -1,3 +1,5 @@
+import os
+import shutil
 from strands import tool
 from duckduckgo_search import DDGS
 import requests
@@ -132,17 +134,24 @@ def repayment_duration(principal: float, monthly_payment: float) -> str:
         return f"Error calculating repayment duration: {str(e)}"
 
 # RAG tools with comprehensive error handling
+
 @tool
-def initialize_rag_system():
-    """Initialize RAG knowledge base with comprehensive error handling"""
+def initialize_rag_system(force_reinitialize: bool = False):
+    """Initialize RAG knowledge base with comprehensive error handling.
+       If force_reinitialize is True, it will clear existing data.
+    """
     if not RAG_AVAILABLE:
         return "RAG system dependencies not available. Install chromadb and sentence-transformers."
-    
     try:
-        # Create data directory if it doesn't exist
-        os.makedirs("./data/vector_store", exist_ok=True)
-        
-        client = chromadb.PersistentClient(path="./data/vector_store")
+        vector_store_path = "./data/vector_store"
+
+        # Conditionally remove existing data if a fresh start is needed
+        if force_reinitialize and os.path.exists(vector_store_path):
+            shutil.rmtree(vector_store_path)
+            logger.warning("RAG vector store cleared due to force_reinitialize=True")
+
+        os.makedirs(vector_store_path, exist_ok=True)
+        client = chromadb.PersistentClient(path=vector_store_path)
         
         # Create collections if they don't exist
         collections = ["hdb_policies", "grant_schemes", "market_data", "location_intel"]

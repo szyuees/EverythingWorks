@@ -1,12 +1,14 @@
 from dotenv import load_dotenv
 load_dotenv()
 
+import os
 import gradio as gr
 from agents.orchestrator_agent import orchestrator
 import logging
 import boto3
 from datetime import datetime
 import json
+os.environ['GRADIO_ANALYTICS_ENABLED'] = 'False'
 
 
 # Import new core systems
@@ -20,20 +22,6 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 logger.info("Starting Enhanced Housing Assistant with RAG + MCP")
-
-# Initialize systems
-try:
-    # Initialize RAG system
-    rag_status = initialize_rag_system()
-    logger.info(f"RAG Status: {rag_status}")
-    
-    # Initialize MCP Context Manager
-    context_manager = MCPContextManager()
-    logger.info("MCP Context Manager initialized")
-    
-except Exception as e:
-    logger.error(f"Initialization error: {e}")
-    context_manager = None
 
 class EnhancedChatbotWithContext:
     def __init__(self, agent, context_manager):
@@ -154,6 +142,23 @@ class EnhancedChatbotWithContext:
         except Exception as e:
             logger.warning(f"Response enhancement error: {e}")
             return response
+# Initialize systems
+try:
+    # Initialize RAG system
+    rag_status = initialize_rag_system()
+    logger.info(f"RAG Status: {rag_status}")
+
+    # Initialize MCP Context Manager
+    context_manager = MCPContextManager()
+    logger.info("MCP Context Manager initialized")
+
+    # Initialize the enhanced chatbot
+    chatbot = EnhancedChatbotWithContext(orchestrator, context_manager)
+
+except Exception as e:
+    logger.error(f"Initialization error: {e}")
+    context_manager = None
+    chatbot = None
 
 # Initialize enhanced chatbot
 if context_manager:
@@ -215,10 +220,10 @@ with gr.Blocks(title="Enhanced Singapore Housing Assistant", theme=gr.themes.Sof
     with gr.Row():
         with gr.Column(scale=3):
             chatbot_interface = gr.Chatbot(
+                type='messages',
                 label="Housing Assistant Conversation",
                 height=500,
                 show_label=True,
-                bubble_full_width=False
             )
             
             user_input = gr.Textbox(
@@ -263,42 +268,36 @@ with gr.Blocks(title="Enhanced Singapore Housing Assistant", theme=gr.themes.Sof
     session_state = gr.State()
     
     def process_chat(message, history, session_id):
-        if not message.strip():
+        if not message or not message.strip():
+            return history, "", session_id
+    
+        try:
+        # Initialize history if None
+            history = history or []
+        
+        # Add user message to history with None for bot response
+            history.append([message, None])
+        
+        # Get response from chatbot
+            response = chatbot.ask(message, user_id=session_id)
+        
+        # Ensure response is properly formatted for Gradio Chatbot
+        # Convert to string and handle any AgentResult objects
+            if hasattr(response, 'content'):
+                response_text = str(response.content)
+            elif hasattr(response, 'text'):
+                response_text = str(response.text)
+            else:
+                response_text = str(response)
+        
+        # Update the last message with the bot's response
+            history[-1][1] = response_text
+        
             return history, "", session_id
         
-        history = history or []
-        history.append([message, None])
-        
-        response, new_session_id = chat_with_enhanced_housing_bot(message, session_id)
-        history[-1][1] = response
-        
-        return history, "", new_session_id
-    
-    # Event handlers
-    submit_btn.click(
-        process_chat,
-        inputs=[user_input, chatbot_interface, session_state],
-        outputs=[chatbot_interface, user_input, session_state]
-    )
-    
-    user_input.submit(
-        process_chat,
-        inputs=[user_input, chatbot_interface, session_state],
-        outputs=[chatbot_interface, user_input, session_state]
-    )
-    
-    clear_btn.click(
-        lambda: ([], "", None),
-        outputs=[chatbot_interface, user_input, session_state]
-    )
-
-if __name__ == "__main__":
-    logger.info("🚀 Launching Enhanced Singapore Housing Assistant")
-    logger.info("Features: RAG Knowledge Base, Context Management, Decision Support")
-    
-    iface.launch(
-        server_name="0.0.0.0",
-        server_port=7860,
-        share=True,  # Set to False for local only
-        show_error=True
-    )
+        except Exception as e:
+            logger.error(f"Error in process_chat: {e}")
+        # Ensure we still return proper format even on error
+            if history and len(history) > 0:
+                history[-1][1] = f"Error processing your message: {str(e)}"
+            return history, "", session_id
