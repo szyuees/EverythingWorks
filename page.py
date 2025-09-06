@@ -8,6 +8,8 @@ import logging
 import boto3
 from datetime import datetime
 import json
+from strands.models import BedrockModel
+
 os.environ['GRADIO_ANALYTICS_ENABLED'] = 'False'
 
 
@@ -223,7 +225,6 @@ with gr.Blocks(
             gr.Markdown("### 🎯 Quick Start")
             sample_buttons = [
                 "What housing grants am I eligible for as a Singapore citizen?",
-                "Help me find a 4-room HDB flat in Tampines under $500k",
                 "I earn $6000/month, what's my housing budget?",
                 "Compare BTO vs resale HDB flats"
             ]

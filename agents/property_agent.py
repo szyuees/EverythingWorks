@@ -1,6 +1,7 @@
 from strands import Agent
-from tools import web_search, http_request
-
+from tools import web_search, http_request, js_request, filter_and_rank
+from strands.models import BedrockModel
+bedrock_model = BedrockModel(model_id="anthropic.claude-3-5-sonnet-20240620-v1:0")
 
 property_agent = Agent(
     system_prompt='''
@@ -21,7 +22,33 @@ property_agent = Agent(
     Always use official sources like PropertyGuru, 99.co, HDB, or EdgeProp.
     If you cannot find the information, ask the user for clarification or additional details.
     Do not call web_search repeatedly. If you have found official information, stop and summarize.
-    If there are no suitable housing options, return "No suitable housing options found."
+    If there are no suitable housing options, return "No suitable housing options found.
+    After getting the property lisings, perform the following:
+    - Filter them based on user criteria (e.g. budget, location, ammenities, etc.)
+    - Rank them by relevance
+    - Summarize the reason for ranking them this way
+    Use the 'name' and 'link' fields from the web_search results to populate the 'name' and 'link' in your JSON output. Always include the actual URL.
+    Output format: A JSON list of objects. Each object should have:
+    {
+     "name": "property name",
+     "block number": "block number",
+     "street name": "street name",
+     "price": 0,
+     "rooms": 0,
+     "location": "location",
+     "floor": 0,
+     "amenities": ["list of amenities"],
+     "ranking_reason": "reason why this property is ranked this way"
+     "link": "URL of the property listing"
+    }
+    Example:
+    [
+     {"name": "HDB 4-room Punggol", "block number": "BLK677B", "street name": "677B Punggol Drive", "price": 850000, "rooms": 4, "location": "Punggol", "floor": 12, "amenities": ["MRT", "supermarket"], "ranking_reason": "Within budget, near MRT and amenities", "link": "https://www.99.co/singapore/property/hdb-punggol-4room-12345"},
+     {"name": "HDB 4-room Hougang", "block number": "BLK123", "street name": "123 Hougang Central","price": 820000, "rooms": 4, "location": "Hougang", "floor": 5, "amenities": ["school", "gym"], "ranking_reason": "Slightly further from MRT but cheaper", "link": "https://www.propertyguru.com.sg/listing/hdb-4room-hougang-67890"}
+    ]
     ''',
-    tools=[web_search, http_request]
+    tools=[web_search, http_request, filter_and_rank, js_request],
+    model=bedrock_model
+    
+
 )

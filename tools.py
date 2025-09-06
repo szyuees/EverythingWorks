@@ -6,6 +6,8 @@ import requests
 import logging
 import os
 from aws_session import session
+from playwright.sync_api import sync_playwright
+import random, time
 
 # RAG imports with error handling
 try:
@@ -42,9 +44,16 @@ def web_search(query: str, max_results: int = 5):
         logger.error(f"Web search error: {e}")
         return f"Web search error: {str(e)}"
 
+
+# ----------------------------
+# 2. HTTP Request Tool
+# ----------------------------
 @tool
-def http_request(url: str):
-    """Perform HTTP GET request with error handling."""
+def http_request(url: str, limit: int = 0):
+    """
+    Perform HTTP GET request with error handling.
+    If `limit` > 0, returns only first `limit` characters.
+    """
     try:
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
@@ -52,8 +61,8 @@ def http_request(url: str):
         response = requests.get(url, headers=headers, timeout=10)
         response.raise_for_status()
         
-        # Return first 2000 chars for better context
-        return response.text[:2000]
+        text = response.text
+        return text[:limit] if limit else text
         
     except requests.exceptions.RequestException as e:
         logger.error(f"HTTP request error for {url}: {e}")
@@ -62,6 +71,58 @@ def http_request(url: str):
         logger.error(f"Unexpected error fetching {url}: {e}")
         return f"Unexpected error fetching URL {url}: {str(e)}"
 
+
+# ----------------------------
+# 3. JavaScript Request Tool
+# ----------------------------
+@tool
+def js_request(url: str, wait: int = 5, limit: int = 0, use_captcha_solver: bool = False):
+    """
+    Fetch JS-heavy pages with stealth features and optional CAPTCHA solving hook.
+    
+    Parameters:
+    - url: target page
+    - wait: seconds to wait for JS to load
+    - limit: number of chars to return (0 = all)
+    - use_captcha_solver: if True, placeholder for integrating CAPTCHA solver (2Captcha, Anti-Captcha)
+    """
+    try:
+        with sync_playwright() as p:
+            # Launch Chromium headless
+            browser = p.chromium.launch(headless=True)
+
+            # Create context with stealth settings
+            context = browser.new_context(
+                viewport={"width": 1280, "height": 800},
+                user_agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.5993.118 Safari/537.36"
+            )
+
+            page = context.new_page()
+            page.goto(url, timeout=20000)
+
+            # Randomized wait to mimic human behavior
+            jitter = random.uniform(-0.5, 0.5)
+            time.sleep(wait + jitter)
+
+            # Optional CAPTCHA detection hook
+            if use_captcha_solver:
+                content_lower = page.content().lower()
+                if "captcha" in content_lower:
+                    logger.info("CAPTCHA detected. Integrate solver here.")
+                    # TODO: Integrate CAPTCHA solving service
+
+            # Get page content
+            html_content = page.content()
+
+            browser.close()
+
+            # Return full content or truncated
+            return html_content[:limit] if limit > 0 else html_content
+
+    except Exception as e:
+        logger.error(f"Playwright error fetching {url}: {e}")
+        return f"JS request error for {url}: {str(e)}"
+    
 @tool
 def filter_and_rank(results, location=None, max_price=None, flat_type=None, k=3):
     """Filter search results by criteria and return top-k with error handling."""

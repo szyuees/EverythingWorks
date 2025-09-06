@@ -1,5 +1,7 @@
 from strands import Agent, tool
 from tools import web_search, http_request
+from strands.models import BedrockModel
+bedrock_model = BedrockModel(model_id="anthropic.claude-3-5-sonnet-20241022-v1:0")
 
 grant_agent = Agent(
     system_prompt='''
@@ -25,7 +27,8 @@ grant_agent = Agent(
     Do not call web_search repeatedly. If you have found official information, stop and summarize.
     If the user do not have any elligible grants, return "No Elligible Grants".
      ''',
-    tools=[web_search, http_request]
+    tools=[web_search, http_request], 
+    model=bedrock_model
 
 )
 

@@ -1,6 +1,8 @@
 from strands import Agent, tool
 import logging
 from aws_session import session
+from strands.models import BedrockModel
+bedrock_model = BedrockModel(model_id="anthropic.claude-3-5-sonnet-20240620-v1:0")
 
 # Import agents with error handling
 try:
@@ -148,5 +150,6 @@ orchestrator = Agent(
     
     Be conversational and helpful while being accurate with Singapore housing information.
     """,
-    tools=available_tools
+    tools=available_tools,
+    model=bedrock_model
 )

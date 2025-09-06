@@ -5,6 +5,8 @@ import boto3
 from datetime import datetime
 import json
 import traceback
+from strands.models import BedrockModel
+bedrock_model = BedrockModel(model_id="anthropic.claude-3-5-sonnet-20241022-v1:0")
 
 # Import new core systems with proper error handling
 try:
