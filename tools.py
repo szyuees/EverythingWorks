@@ -1,11 +1,21 @@
 import os
 import shutil
 from strands import tool
+from ragtool.aws_rag_tools import initialize_aws_rag_system, singapore_housing_aws_search, validate_aws_rag_configuration
+    
 from duckduckgo_search import DDGS
 import requests
 import logging
 import os
 from aws_session import session
+
+# Add after existing imports
+try:
+    from ragtool.aws_rag_tools import aws_rag_search
+    AWS_RAG_AVAILABLE = True
+except ImportError as e:
+    logging.warning(f"AWS RAG tools not available: {e}")
+    AWS_RAG_AVAILABLE = False
 
 # RAG imports with error handling
 try:
@@ -134,7 +144,7 @@ def repayment_duration(principal: float, monthly_payment: float) -> str:
         return f"Error calculating repayment duration: {str(e)}"
 
 # RAG tools with comprehensive error handling
-
+'''
 @tool
 def initialize_rag_system(force_reinitialize: bool = False):
     """Initialize RAG knowledge base with comprehensive error handling.
@@ -222,6 +232,7 @@ def rag_search(query: str, collection_name: str = "hdb_policies", top_k: int = 3
     except Exception as e:
         logger.error(f"RAG search error: {e}")
         return f"RAG search failed: {str(e)}"
+'''
 
 # Utility function for safe data processing
 def safe_extract_text(content, max_length=1000):

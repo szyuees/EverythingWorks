@@ -14,11 +14,15 @@ except ImportError as e:
 
 # Import new tools with error handling
 try:
-    from tools import rag_search, initialize_rag_system
-    RAG_AVAILABLE = True
+    from ragtool.aws_rag_tools import (
+        aws_rag_search, 
+        singapore_housing_aws_search,
+        validate_aws_rag_configuration
+    )
+    AWS_RAG_AVAILABLE = True
 except ImportError as e:
-    logging.warning(f"RAG tools not available: {e}")
-    RAG_AVAILABLE = False
+    logging.warning(f"AWS RAG tools not available: {e}")
+    AWS_RAG_AVAILABLE = False
 
 logger = logging.getLogger(__name__)
 
@@ -66,13 +70,13 @@ def call_writer_agent(query: str):
 # RAG-based tools with error handling
 @tool
 def smart_rag_search(query: str):
-    """Intelligent RAG search across knowledge domains with error handling"""
+    """Intelligent RAG search using AWS Knowledge Base"""
     
-    if not RAG_AVAILABLE:
-        return "RAG search not available. Using web search fallback."
+    if not AWS_RAG_AVAILABLE:
+        return "AWS RAG search not available. Using web search fallback."
     
     try:
-        # Determine which knowledge domain to search
+        # Determine domain based on query
         query_lower = query.lower()
         
         if any(word in query_lower for word in ['grant', 'cpf', 'subsidy', 'eligible']):
@@ -82,35 +86,26 @@ def smart_rag_search(query: str):
         elif any(word in query_lower for word in ['price', 'market', 'trend', 'value']):
             domain = "market_data"
         else:
-            domain = "hdb_policies"  # Default
+            domain = "hdb_policies"
         
-        # Ensure rag_search result is properly handled
-        result = rag_search(query, domain)
-        
-        # Convert any AgentResult to string
-        if hasattr(result, 'content'):
-            return str(result.content)
-        elif hasattr(result, 'text'):
-            return str(result.text)
-        else:
-            return str(result)
+        return singapore_housing_aws_search(query, domain)
     
     except Exception as e:
-        logger.error(f"RAG search error: {e}")
-        return f"RAG search error: {str(e)}. Please try a web search instead."
+        logger.error(f"AWS RAG search error: {e}")
+        return f"AWS RAG search error: {str(e)}. Please try a web search instead."
 
 @tool
 def safe_initialize_rag_system():
-    """Initialize RAG system with error handling"""
-    if not RAG_AVAILABLE:
-        return "RAG system not available"
+    """Validate AWS RAG system configuration"""
+    if not AWS_RAG_AVAILABLE:
+        return "AWS RAG system not available"
     
     try:
-        result = initialize_rag_system()
+        result = validate_aws_rag_configuration()
         return str(result)
     except Exception as e:
-        logger.error(f"RAG initialization error: {e}")
-        return f"RAG initialization failed: {str(e)}"
+        logger.error(f"AWS RAG validation error: {e}")
+        return f"AWS RAG validation failed: {str(e)}"
 
 # Enhanced orchestrator with comprehensive error handling
 available_tools = [
@@ -121,7 +116,7 @@ available_tools = [
 ]
 
 # Add RAG tools if available
-if RAG_AVAILABLE:
+if AWS_RAG_AVAILABLE:
     available_tools.extend([smart_rag_search, safe_initialize_rag_system])
 
 orchestrator = Agent(
@@ -133,18 +128,21 @@ orchestrator = Agent(
     - Grant eligibility assessment: call_grant_agent  
     - Property filtering and ranking: call_filter_agent
     - Financial calculations and formatting: call_writer_agent
-    {'- RAG knowledge base search: smart_rag_search' if RAG_AVAILABLE else ''}
-    {'- RAG system initialization: safe_initialize_rag_system' if RAG_AVAILABLE else ''}
+    {'- AWS Knowledge Base search: smart_rag_search' if AWS_RAG_AVAILABLE else ''}
+    {'- AWS RAG system validation: safe_initialize_rag_system' if AWS_RAG_AVAILABLE else ''}
     
     Decision flow:
-    1. For policy/regulation questions -> Use smart_rag_search first (if available), then relevant agent
-    2. For grant eligibility -> Use call_grant_agent (with RAG support if available)
+    1. For policy/regulation questions -> Use smart_rag_search (AWS Knowledge Base)
+    2. For grant eligibility -> Use call_grant_agent (with AWS KB support)
     3. For property search -> Use call_property_agent 
-    4. For filtering/ranking existing results -> Use call_filter_agent
-    5. For calculations and report formatting -> Use call_writer_agent
+    4. For filtering/ranking -> Use call_filter_agent
+    5. For calculations and formatting -> Use call_writer_agent
     
     Always provide helpful responses even if some tools are unavailable.
-    If an agent call fails, acknowledge the error and provide general guidance.
+    If AWS Knowledge Base is unavailable, fall back to web search. For web search, use official sources like HDB, CPF, or gov.sg.
+    For web search, always output the source URLs used, and ensure information is accurate and up-to-date.
+    When calling the agents, handle any errors gracefully and inform the user if a tool is unavailable, always follow specific output format as declared by the agent.
+    If an agent call fails, inform the user and suggest alternative actions. 
     
     Be conversational and helpful while being accurate with Singapore housing information.
     """,

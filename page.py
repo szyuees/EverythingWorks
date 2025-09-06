@@ -13,7 +13,6 @@ os.environ['GRADIO_ANALYTICS_ENABLED'] = 'False'
 
 # Import new core systems
 from core.mcp_context_manager import MCPContextManager
-from tools import initialize_rag_system
 
 # --- Enhanced Logging ---
 logging.basicConfig(
@@ -145,9 +144,10 @@ class EnhancedChatbotWithContext:
             return response
 # Initialize systems
 try:
-    # Initialize RAG system
-    rag_status = initialize_rag_system()
-    logger.info(f"RAG Status: {rag_status}")
+    # Initialize AWS RAG system validation
+    from ragtool.aws_rag_tools import validate_aws_rag_configuration
+    rag_status = validate_aws_rag_configuration()
+    logger.info(f"AWS RAG Status: {rag_status}")
 
     # Initialize MCP Context Manager
     context_manager = MCPContextManager()

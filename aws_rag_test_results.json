@@ -1,0 +1,16 @@
+{
+  "aws_connectivity": true,
+  "knowledge_base_access": true,
+  "document_retrieval": true,
+  "end_to_end_query": true,
+  "performance_metrics": {
+    "avg_query_time": 6.25125773747762,
+    "successful_queries": 3
+  },
+  "error_details": [],
+  "overall_status": "PASS",
+  "passed_tests": 5,
+  "total_tests": 5,
+  "test_duration": 59.07398295402527,
+  "timestamp": "2025-09-06T22:54:38.696446"
+}
