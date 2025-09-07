@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class ToolInfo:
     """Information about a tool and its availability"""
     name: str
-    function: Callable
+    function: Optional[Callable]
     category: str
     description: str
     dependencies: List[str]
@@ -44,8 +44,11 @@ class ToolRegistry:
         # HTTP tools
         self._register_http_tools()
         
-        # AWS RAG tools (optional)
+        # AWS RAG tools
         self._register_aws_tools()
+        
+        # External service tools
+        self._register_external_tools()
         
         logger.info(f"Tool registry initialized with {len(self.tools)} tools")
         self._log_tool_status()
@@ -86,7 +89,7 @@ class ToolRegistry:
                 function=property_search,
                 category="property",
                 description="Search property listings from official Singapore portals",
-                dependencies=["portal_search_tool", "duckduckgo_search"]
+                dependencies=["duckduckgo_search", "requests"]
             )
             
             self.register_tool(
@@ -186,9 +189,9 @@ class ToolRegistry:
             logger.error(f"Failed to register HTTP tools: {e}")
     
     def _register_aws_tools(self):
-        """Register AWS RAG tools (optional)"""
+        """Register AWS RAG tools"""
         try:
-            from ragtool.aws_rag_tools import (
+            from tools_consolidated.aws import (
                 aws_rag_search, singapore_housing_aws_search, 
                 validate_aws_rag_configuration
             )
@@ -223,6 +226,45 @@ class ToolRegistry:
             logger.warning(f"AWS RAG tools not available: {e}")
         except Exception as e:
             logger.error(f"Failed to register AWS tools: {e}")
+    
+    def _register_external_tools(self):
+        """Register external service integration tools"""
+        try:
+            from tools_consolidated.external import (
+                search_property_portals, get_supported_portals,
+                validate_portal_configuration
+            )
+            
+            self.register_tool(
+                name="search_property_portals",
+                function=search_property_portals,
+                category="external",
+                description="Search property portals using Google CSE and DuckDuckGo",
+                dependencies=["duckduckgo_search", "requests"]
+            )
+            
+            self.register_tool(
+                name="get_supported_portals",
+                function=get_supported_portals,
+                category="external",
+                description="Get list of supported property portals",
+                dependencies=[]
+            )
+            
+            self.register_tool(
+                name="validate_portal_configuration", 
+                function=validate_portal_configuration,
+                category="external",
+                description="Validate external portal search configuration",
+                dependencies=["requests"]
+            )
+            
+            logger.info("External service tools registered successfully")
+            
+        except ImportError as e:
+            logger.warning(f"External service tools not available: {e}")
+        except Exception as e:
+            logger.error(f"Failed to register external tools: {e}")
     
     def register_tool(self, name: str, function: Callable, category: str, 
                      description: str, dependencies: List[str]):
@@ -277,7 +319,7 @@ class ToolRegistry:
     def get_tool_functions(self, category: str = None) -> List[Callable]:
         """Get list of available tool functions for use with agents"""
         available_tools = self.get_available_tools(category)
-        return [tool.function for tool in available_tools]
+        return [tool.function for tool in available_tools if tool.function]
     
     def get_tool_names(self, category: str = None) -> List[str]:
         """Get list of available tool names"""

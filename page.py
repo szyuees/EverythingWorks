@@ -1,4 +1,4 @@
-# page.py - Updated to use consolidated tools
+# page.py - Fixed import dependencies for new repo structure
 from dotenv import load_dotenv
 load_dotenv()
 
@@ -16,52 +16,49 @@ logging.basicConfig(
     level=logging.INFO
 )
 logger = logging.getLogger(__name__)
-logger.info("Starting Enhanced Housing Assistant with Consolidated Tools + RAG + MCP")
+logger.info("Starting Enhanced Housing Assistant with Consolidated Tools")
 
 # Import consolidated tools and check availability
+CONSOLIDATED_TOOLS_AVAILABLE = False
+MCP_AVAILABLE = False
+
 try:
-    from tools_consolidated import tool_registry, get_tool_status
-    from tools_consolidated.registry import tool_registry
+    from tools_consolidated import get_tool_status, get_system_status
     CONSOLIDATED_TOOLS_AVAILABLE = True
-    logger.info("✅ Consolidated tools loaded successfully")
+    logger.info("Consolidated tools loaded successfully")
     
     # Log tool status
-    status = get_tool_status()
-    available_tools = status['available_tools']
-    total_tools = status['total_tools'] 
-    logger.info(f"Tool Status: {available_tools}/{total_tools} tools available")
+    try:
+        status = get_tool_status()
+        available_tools = status['available_tools']
+        total_tools = status['total_tools'] 
+        logger.info(f"Tool Status: {available_tools}/{total_tools} tools available")
+    except Exception as e:
+        logger.warning(f"Could not get tool status: {e}")
     
 except ImportError as e:
-    logger.warning(f"⚠️ Consolidated tools not available: {e}")
-    CONSOLIDATED_TOOLS_AVAILABLE = False
+    logger.warning(f"Consolidated tools not available: {e}")
 
-# Import orchestrator agent (updated to use consolidated tools)
+# Import orchestrator agent
 try:
     from agents.orchestrator_agent import orchestrator
-    logger.info("✅ Orchestrator agent loaded")
+    logger.info("Orchestrator agent loaded")
 except ImportError as e:
-    logger.error(f"❌ Failed to load orchestrator agent: {e}")
-    raise
+    logger.error(f"Failed to load orchestrator agent: {e}")
+    # Create a minimal fallback orchestrator
+    class FallbackOrchestrator:
+        def __call__(self, query):
+            return f"System error: Orchestrator not available. Error: {str(e)}"
+    orchestrator = FallbackOrchestrator()
 
 # Import context manager
 try:
     from core.mcp_context_manager import MCPContextManager
     MCP_AVAILABLE = True
-    logger.info("✅ MCP Context Manager available")
+    logger.info("MCP Context Manager available")
 except ImportError as e:
-    logger.warning(f"⚠️ MCP Context Manager not available: {e}")
-    MCP_AVAILABLE = False
-
-# Validate AWS RAG system if available
-try:
-    if CONSOLIDATED_TOOLS_AVAILABLE:
-        from ragtool.aws_rag_tools import validate_aws_rag_configuration
-        rag_status = validate_aws_rag_configuration()
-        logger.info(f"AWS RAG Status: {rag_status}")
-    else:
-        logger.info("AWS RAG Status: Using legacy validation")
-except Exception as e:
-    logger.warning(f"AWS RAG validation failed: {e}")
+    logger.warning(f"MCP Context Manager not available: {e}")
+    MCPContextManager = None
 
 class EnhancedChatbotWithContext:
     def __init__(self, agent, context_manager=None):
@@ -210,7 +207,6 @@ class EnhancedChatbotWithContext:
                 if not profile.get('preferred_locations'):
                     missing_info.append('preferred locations')
                 
-                # Note: Removed emoji as per guidelines
                 if missing_info:
                     completion_note = f"\n\n**To provide better recommendations**: Share your {', '.join(missing_info[:2])}"
                     response = str(response) + completion_note
@@ -308,7 +304,7 @@ with gr.Blocks(
 ) as iface:
     
     # Header with system status
-    system_status = "Consolidated Tools" if CONSOLIDATED_TOOLS_AVAILABLE else "Legacy Tools"
+    system_status = "Consolidated Tools" if CONSOLIDATED_TOOLS_AVAILABLE else "Legacy Mode"
     mcp_status = "Context Management" if MCP_AVAILABLE else "Basic Mode"
     
     gr.HTML(f"""
@@ -359,13 +355,13 @@ with gr.Blocks(
             # Dynamic status based on available systems
             if CONSOLIDATED_TOOLS_AVAILABLE:
                 try:
-                    tool_status = get_tool_status()
-                    available_count = tool_status['available_tools']
-                    total_count = tool_status['total_tools']
+                    status = get_system_status()
                     status_md = f"""
-                    - **Tools**: {available_count}/{total_count} available
+                    - **Tools**: Consolidated ({status.get('version', '1.0.0')})
                     - **Context Management**: {'Active' if MCP_AVAILABLE else 'Basic'}
-                    - **AWS RAG**: {'Active' if 'aws' in tool_status.get('categories', {}) else 'Unavailable'}
+                    - **AWS RAG**: {'Active' if status.get('aws_tools') else 'Unavailable'}
+                    - **Search**: {'Active' if status.get('search_tools') else 'Limited'}
+                    - **Property**: {'Active' if status.get('property_tools') else 'Limited'}
                     """
                 except:
                     status_md = f"""
