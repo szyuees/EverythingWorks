@@ -1,0 +1,33 @@
+# Core Dependencies
+gradio>=4.0.0
+strands
+boto3
+python-dotenv
+requests
+beautifulsoup4
+duckduckgo-search
+
+# Optional Dependencies for Enhanced Features
+markdownify  # For HTML to markdown conversion
+urllib3      # For robust HTTP handling
+
+# Data Processing
+pandas       # For data manipulation if needed
+numpy        # For numerical calculations
+
+# Development and Testing
+pytest       # For future testing
+logging      # Built-in but explicit
+
+# Note: The following were consolidated into tools_consolidated/
+# - Individual tool modules are now organized by category
+# - Enhanced HTTP handling is centralized
+# - Tool registry manages dependencies automatically
+
+# AWS Dependencies (required for full functionality)
+# boto3 - Already included above
+# botocore - Comes with boto3
+
+# Optional: For advanced features
+# plotly    # For data visualization (if needed later)
+# streamlit # Alternative to Gradio (if needed)
