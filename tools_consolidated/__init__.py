@@ -140,9 +140,11 @@ def get_system_status():
 # Add system status to exports
 __all__.append('get_system_status')
 
-# Log initialization status
-logger.info(f"Tools consolidated initialized - {sum([
+# Log initialization status - FIXED SYNTAX
+available_categories = sum([
     REGISTRY_AVAILABLE, SEARCH_TOOLS_AVAILABLE, PROPERTY_TOOLS_AVAILABLE,
     FINANCIAL_TOOLS_AVAILABLE, HTTP_TOOLS_AVAILABLE, AWS_TOOLS_AVAILABLE,
     EXTERNAL_TOOLS_AVAILABLE
-])}/7 tool categories available")
+])
+
+logger.info(f"Tools consolidated initialized - {available_categories}/7 tool categories available")
