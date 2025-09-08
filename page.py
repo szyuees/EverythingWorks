@@ -314,7 +314,9 @@ with gr.Blocks(
         <p style="font-size: 14px; margin: 5px 0 0; opacity: 0.8;">Status: {system_status} | {mcp_status}</p>
     </div>
     """)
-
+    initial_history = [
+        {"role": "assistant", "content": "Hi! I am a housing chatbot here to answer any housing-related queries you might have."}
+    ]
     with gr.Row():
         # Main conversation area
         with gr.Column(scale=3):
@@ -322,7 +324,8 @@ with gr.Blocks(
                 type="messages",
                 label="Chat with Housing Assistant",
                 height=500,
-                show_label=True
+                show_label=True,
+                value = initial_history
             )
             
             user_input = gr.Textbox(
@@ -342,7 +345,7 @@ with gr.Blocks(
             sample_queries = [
                 "What housing grants am I eligible for as a Singapore citizen?",
                 "I earn $6000/month, what's my housing budget?",
-                "Compare BTO vs resale HDB flats"
+                "Can you provide a list of flats that are suitable for me?"
             ]
             
             sample_buttons = []
@@ -350,33 +353,24 @@ with gr.Blocks(
                 btn = gr.Button(query, size="sm")
                 sample_buttons.append(btn)
             
-            gr.Markdown("### System Status")
-            
-            # Dynamic status based on available systems
-            if CONSOLIDATED_TOOLS_AVAILABLE:
-                try:
-                    status = get_system_status()
-                    status_md = f"""
-                    - **Tools**: Consolidated ({status.get('version', '1.0.0')})
-                    - **Context Management**: {'Active' if MCP_AVAILABLE else 'Basic'}
-                    - **AWS RAG**: {'Active' if status.get('aws_tools') else 'Unavailable'}
-                    - **Search**: {'Active' if status.get('search_tools') else 'Limited'}
-                    - **Property**: {'Active' if status.get('property_tools') else 'Limited'}
-                    """
-                except:
-                    status_md = f"""
-                    - **Tools**: Consolidated tools active
-                    - **Context Management**: {'Active' if MCP_AVAILABLE else 'Basic'}
-                    - **Status**: All systems operational
-                    """
-            else:
-                status_md = f"""
-                - **Tools**: Legacy mode
-                - **Context Management**: {'Active' if MCP_AVAILABLE else 'Basic'}
-                - **Note**: Running in compatibility mode
-                """
-            
-            gr.Markdown(status_md)
+            gr.Markdown("### Sources From")
+            gr.Markdown("""
+            - HDB.sg
+            - PropertyGuru
+            - 99.co
+            - Propnex
+            - SRX
+            - CPF
+            """)
+
+            # 👇 Add Tech Stack section here
+            gr.Markdown("### Tech Stack")
+            gr.Markdown("""
+            - **Frontend**: Gradio  
+            - **Backend**: Python  
+            - **Tools**: RAG Pipeline, MCP Pipeline 
+            - **Hosting**: AWS
+            """)
     
     # Session state
     session_state = gr.State()
@@ -414,7 +408,11 @@ with gr.Blocks(
     )
     
     clear_btn.click(
-        lambda: ([], "", None),
+        lambda: (
+        [{"role": "assistant", "content": "Hi! I am a housing chatbot here to answer any housing-related queries you might have 🤩."}],
+        "", 
+        None
+        ),
         outputs=[chatbot_interface, user_input, session_state]
     )
     
