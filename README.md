@@ -1,274 +1,382 @@
 # Singapore Housing AI Assistant
 
-A comprehensive agentic solution for Singapore housing guidance, providing intelligent property search, grant eligibility assessment, and personalized recommendations through a multi-agent architecture with AWS RAG integration.
+A sophisticated multi-agent artificial intelligence solution designed to provide comprehensive housing guidance for Singapore residents. This system leverages advanced agent architecture, AWS Retrieval-Augmented Generation (RAG), and real-time property data integration to deliver intelligent property recommendations, grant eligibility assessments, and financial analysis.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [System Architecture](#system-architecture)
+- [Prerequisites](#prerequisites)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Quick Start](#quick-start)
+- [Features](#features)
+- [API Documentation](#api-documentation)
+- [Testing](#testing)
+- [Troubleshooting](#troubleshooting)
+- [Support](#support)
 
 ## Overview
 
-This AI assistant leverages multiple specialized agents and consolidated tools to provide comprehensive housing guidance for Singapore residents. The system combines web search capabilities, AWS Knowledge Base integration, financial calculations, and property portal search to deliver accurate, contextual advice.
+The Singapore Housing AI Assistant is an enterprise-grade agentic solution that addresses the complexity of Singapore's housing market through intelligent automation. The system combines multiple specialized agents with comprehensive data sources to provide accurate, contextual housing guidance.
 
-## Features
+### Key Capabilities
 
-### Core Capabilities
-- **Multi-Agent Architecture**: Specialized agents for orchestration, property search, grant assessment, filtering, decision support, and content writing
-- **AWS RAG Integration**: Knowledge Base search for official Singapore housing policies and regulations
-- **Contextual User Management**: Persistent user profiles and journey stage tracking
-- **Property Portal Search**: Integration with PropertyGuru, 99.co, HDB.gov.sg, and EdgeProp
-- **Financial Calculations**: TDSR compliance, affordability analysis, CPF utilization, and loan calculations
-- **Grant Eligibility Assessment**: Comprehensive analysis of available housing grants and subsidies
+- **Multi-Agent Orchestration**: Coordinated specialist agents for different aspects of housing guidance
+- **Real-Time Property Search**: Integration with major Singapore property portals (PropertyGuru, 99.co, HDB.gov.sg, EdgeProp)
+- **Grant Intelligence**: Automated assessment of housing grants and subsidies eligibility
+- **Financial Modeling**: TDSR compliance checking, affordability analysis, and CPF utilization optimization
+- **Knowledge Base Integration**: AWS-powered RAG system with official Singapore housing policies
 
-### Advanced Features
-- **Decision Support Engine**: Multi-factor property analysis with risk assessment
-- **Consolidated Tool Registry**: Centralized tool management with dependency tracking
-- **Enhanced HTTP Client**: Anti-bot measures, rate limiting, and session management
-- **URL Validation**: Real-time property listing verification and metadata extraction
-- **Caching System**: TTL-based caching for improved performance
+## System Architecture
 
-## Architecture
+### Directory Structure
 
-### Agent System
 ```
-├── orchestrator_agent.py     # Main coordination agent
-├── property_agent.py         # Property search and listings
-├── grant_agent.py           # Grant eligibility assessment
-├── filter_agent.py          # Property filtering and ranking
-├── decision_agent.py        # Comprehensive property analysis
-└── writer_agent.py          # Financial calculations and formatting
+singapore-housing-ai-assistant/
+├── .env                           # Environment configuration
+├── aws_session.py                 # AWS session management
+├── page.py                        # Main Gradio application
+├── requirements.txt               # Python dependencies
+├── tools.py                       # Legacy compatibility layer
+│
+├── agents/                        # Multi-agent system
+│   ├── __init__.py
+│   ├── orchestrator_agent.py      # Central coordination agent
+│   ├── property_agent.py          # Property search specialist
+│   ├── grant_agent.py             # Grant eligibility specialist
+│   ├── filter_agent.py            # Property filtering specialist
+│   ├── decision_agent.py          # Decision support specialist
+│   └── writer_agent.py            # Financial calculations specialist
+│
+├── core/                          # Core business logic
+│   ├── __init__.py
+│   ├── decision_support_engine.py # Advanced property analysis
+│   └── mcp_context_manager.py     # User context management
+│
+└── tools_consolidated/            # Organized tool system
+    ├── __init__.py
+    ├── registry.py                # Central tool registry
+    │
+    ├── aws/                       # AWS integration tools
+    │   ├── __init__.py
+    │   └── aws_tools.py           # Knowledge Base RAG search
+    │
+    ├── external/                  # External service integration
+    │   ├── __init__.py
+    │   └── portal_search_tools.py # Property portal search
+    │
+    ├── financial/                 # Financial calculation tools
+    │   ├── __init__.py
+    │   └── financial_tools.py     # Affordability, CPF, loans
+    │
+    ├── http/                      # HTTP and web tools
+    │   ├── __init__.py
+    │   └── http_tools.py          # Web scraping, validation
+    │
+    ├── property/                  # Property-specific tools
+    │   ├── __init__.py
+    │   └── property_tools.py      # Search, filter, scrape
+    │
+    └── search/                    # Search tools
+        ├── __init__.py
+        └── search_tools.py        # Web search, Singapore search
 ```
 
-### Consolidated Tools
+### Agent Ecosystem
+
 ```
-├── tools_consolidated/
-│   ├── search/              # Web and Singapore-specific search
-│   ├── property/            # Property search and filtering
-│   ├── financial/           # Affordability and loan calculations
-│   ├── http/               # Enhanced HTTP requests and validation
-│   ├── aws/                # AWS Knowledge Base integration
-│   ├── external/           # Property portal search
-│   └── registry.py         # Central tool management
+┌─────────────────────────────────────────────────────────┐
+│                 Orchestrator Agent                      │
+│              (Central Coordination)                     │
+└─────────────────┬───────────────────────────────────────┘
+                  │
+    ┌─────────────┼─────────────┐
+    │             │             │
+┌───▼───┐    ┌───▼───┐    ┌───▼───┐
+│Property│    │ Grant │    │Filter │
+│ Agent  │    │ Agent │    │ Agent │
+└────────┘    └───────┘    └───────┘
+    │             │             │
+┌───▼───┐    ┌───▼───┐         │
+│Decision│    │Writer │         │
+│ Agent  │    │ Agent │         │
+└───────┘    └───────┘         │
+                               │
+┌─────────────────────────────▼─────────────────────────┐
+│              Consolidated Tools                       │
+│  ┌─────────┐ ┌──────────┐ ┌──────────┐ ┌─────────┐   │
+│  │ Search  │ │ Property │ │Financial │ │   AWS   │   │
+│  │  Tools  │ │  Tools   │ │  Tools   │ │  Tools  │   │
+│  └─────────┘ └──────────┘ └──────────┘ └─────────┘   │
+└───────────────────────────────────────────────────────┘
 ```
 
-### Core Systems
-```
-├── core/
-│   ├── mcp_context_manager.py    # User context and journey tracking
-│   └── decision_support_engine.py # Advanced property analysis
-```
+### Technology Stack
+
+- **Agent Framework**: Strands
+- **Web Interface**: Gradio 4.0+
+- **Cloud Integration**: AWS Bedrock Knowledge Base
+- **Data Processing**: Pandas, NumPy
+- **Web Scraping**: BeautifulSoup4, Requests
+- **Search Integration**: DDGS (DuckDuckGo Search)
+- **HTTP Client**: Enhanced session management with anti-bot measures
+- **Caching**: TTL-based in-memory cache with LRU eviction
+
+## Prerequisites
+
+### System Requirements
+
+- **Python**: 3.8 or higher
+- **Operating System**: Linux, macOS, or Windows
+- **Memory**: Minimum 4GB RAM (8GB recommended)
+- **Storage**: 2GB available disk space
+
+### Required Accounts and Access
+
+- **AWS Account**: For Knowledge Base functionality
+- **Internet Connection**: For real-time property data retrieval
+
+### Optional Enhancements
+
+- **Google Search API**: For enhanced search capabilities
+- **External APIs**: Additional property data sources
 
 ## Installation
 
-### Prerequisites
-- Python 3.8+
-- AWS Account (for Knowledge Base features)
-- Valid API keys for external services (optional)
+### 1. Clone Repository
 
-### Dependencies
+```bash
+git clone [your-repository-url]
+cd singapore-housing-ai-assistant
+```
+
+### 2. Create Virtual Environment
+
+```bash
+python -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+### 3. Install Dependencies
+
 ```bash
 pip install -r requirements.txt
 ```
 
 ### Core Dependencies
-- `gradio>=4.0.0` - Web interface
-- `strands` - Agent framework
-- `boto3` - AWS integration
-- `python-dotenv` - Environment configuration
-- `requests` - HTTP client
-- `beautifulsoup4` - HTML parsing
-- `duckduckgo-search` - Web search
 
-### Optional Dependencies
-- `markdownify` - HTML to markdown conversion
-- `pandas` - Data manipulation
-- `numpy` - Numerical calculations
+```
+gradio>=4.0.0
+strands
+boto3
+python-dotenv
+requests
+beautifulsoup4==4.12.2
+ddgs
+markdownify
+urllib3
+pandas
+numpy
+```
 
 ## Configuration
 
-### Environment Variables
-Create a `.env` file with the following configuration:
+###  Environment Variables
 
-```bash
+Create a `.env` file in the project root:
+
+```env
 # AWS Configuration (Required for full functionality)
-AWS_ACCESS_KEY_ID=your_access_key
-AWS_SECRET_ACCESS_KEY=your_secret_key
-AWS_SESSION_TOKEN=your_session_token  # If using temporary credentials
+AWS_ACCESS_KEY_ID=your_access_key_here
+AWS_SECRET_ACCESS_KEY=your_secret_key_here
+AWS_SESSION_TOKEN=your_session_token  
 AWS_REGION=us-east-1
 AWS_KNOWLEDGE_BASE_ID=your_knowledge_base_id
 AWS_DATA_SOURCE_ID=your_data_source_id
 
-# Optional: External Search APIs
 GOOGLE_API_KEY=your_google_api_key
 GOOGLE_CX=your_custom_search_engine_id
 
-# Optional: Cache Configuration
-PORTAL_SEARCH_CACHE_TTL=60
-PORTAL_SEARCH_CACHE_MAX=200
-
-# Gradio Configuration
-GRADIO_ANALYTICS_ENABLED=False
 ```
 
-### AWS Setup
-1. Create an AWS Knowledge Base for Bedrock
-2. Upload Singapore housing documents to your S3 data source
-3. Configure the Knowledge Base with appropriate permissions
-4. Note your Knowledge Base ID and Data Source ID
+## Quick Start
 
-## Usage
+### 1. Launch Application
 
-### Starting the Application
 ```bash
 python page.py
 ```
 
-The application will start on `http://localhost:7860` by default.
+The application will be available at `http://localhost:7860`
 
-### System Status
-The application displays real-time system status indicating:
-- Consolidated Tools availability
-- Context Management status
-- AWS RAG connectivity
-- Agent system functionality
+### 2. System Status Check
 
-### Fallback Modes
-The system gracefully handles missing dependencies:
-- **Full Mode**: All features available with AWS RAG
-- **Consolidated Mode**: Local tools without AWS integration
-- **Legacy Mode**: Basic functionality with limited features
+Upon startup, the interface displays real-time system status:
 
-## API Reference
-
-### Core Tools
-
-#### Search Tools
-- `web_search(query, max_results)` - Enhanced web search with site filtering
-- `singapore_housing_search(query, search_type)` - Singapore-specific housing search
-
-#### Property Tools
-- `property_search(query, max_results, sites)` - Multi-portal property search
-- `filter_and_rank_properties(results, criteria)` - Property filtering and ranking
-- `validate_urls(listings)` - URL validation and metadata extraction
-
-#### Financial Tools
-- `calculate_affordability(income, debt, deposit)` - Comprehensive affordability analysis
-- `calculate_loan_repayment(principal, rate, term)` - Detailed loan calculations
-- `calculate_cpf_utilization(price, balance, type)` - CPF usage optimization
-
-#### AWS Tools
-- `aws_rag_search(query, search_type)` - Knowledge Base search
-- `singapore_housing_aws_search(query, domain)` - Domain-specific AWS search
-- `validate_aws_rag_configuration()` - System configuration validation
-
-### Agent Interfaces
-
-#### Orchestrator Agent
-Central coordination agent that routes queries to appropriate specialized agents and consolidates responses.
-
-#### Property Agent
-Handles property search with specific output format:
-```json
-[
-  {
-    "name": "Property Name",
-    "snippet": "Description",
-    "url": "https://...",
-    "price": 500000,
-    "rooms": 3,
-    "location": "Location",
-    "ranking_reason": "Explanation"
-  }
-]
+```bash
+INFO | main | Starting Enhanced Housing Assistant with Consolidated Tools
+INFO | tools_consolidated.registry | Python environment: conda - C:\Users\wuche\anaconda3\envs\agentic-env\python.exe
+INFO | tools_consolidated.registry | Initializing tool registry with environment awareness...
+INFO | botocore.credentials | Found credentials in environment variables.
+INFO | tools_consolidated.aws.aws_tools | AWS clients initialized for KB: AVGJILOX4X
+INFO | tools_consolidated.aws.aws_tools | AWS Knowledge Base manager initialized successfully
+INFO | tools_consolidated.search.search_tools | AWS RAG tools loaded from consolidated location
+INFO | tools_consolidated.property.property_tools | Portal search tools loaded successfully
+INFO | tools_consolidated.property.property_tools | HTTP tools loaded successfully
+INFO | tools_consolidated.registry | BeautifulSoup4 status: Available as bs4
+INFO | tools_consolidated.registry | Using full HTTP tools with BeautifulSoup4
+INFO | tools_consolidated.registry | AWS RAG tools registered successfully
+INFO | tools_consolidated.registry | External service tools registered successfully
+INFO | tools_consolidated.registry | Tool registry initialized with 18 tools
+INFO | tools_consolidated.registry | Tool Status: 18/18 available
+INFO | tools_consolidated.registry |   search: 2/2 available
+INFO | tools_consolidated.registry |   property: 3/3 available
+INFO | tools_consolidated.registry |   financial: 4/4 available
+INFO | tools_consolidated.registry |   http: 3/3 available
+INFO | tools_consolidated.registry |   aws: 3/3 available
+INFO | tools_consolidated.registry |   external: 3/3 available
+INFO | tools_consolidated.registry | Environment: conda
+INFO | tools_consolidated | Tools consolidated initialized - 7/7 tool categories available
+INFO | main | Consolidated tools loaded successfully
+INFO | main | Tool Status: 18/18 tools available
+INFO | agents.orchestrator_agent | Consolidated tools imported successfully
+INFO | agents.orchestrator_agent | AWS RAG tools imported successfully
+INFO | botocore.credentials | Found credentials in environment variables.
+INFO | botocore.credentials | Found credentials in environment variables.
+INFO | botocore.credentials | Found credentials in environment variables.
+INFO | botocore.credentials | Found credentials in environment variables.
+INFO | botocore.credentials | Found credentials in environment variables.
+INFO | botocore.credentials | Found credentials in environment variables.
+INFO | agents.orchestrator_agent | Orchestrator initialized with 13 tools
+INFO | agents.orchestrator_agent | ✅ Using consolidated tools
+INFO | agents.orchestrator_agent | ✅ Decision analysis agent available
+INFO | agents.orchestrator_agent | ✅ AWS RAG search available
+INFO | agents.orchestrator_agent | ✅ Agent system available
+INFO | main | Orchestrator agent loaded
+INFO | main | MCP Context Manager available
+INFO | core.mcp_context_manager | MCPContextManager initialized
+INFO | main | MCP Context Manager initialized
+INFO | main | Enhanced chatbot with context management initialized
+INFO | main | Launching Enhanced Singapore Housing Assistant
+INFO | main | Active Features: Consolidated Tools, Context Management
 ```
 
-#### Grant Agent
-Comprehensive grant eligibility assessment following structured workflow:
-1. Information collection
-2. Official source research
-3. Eligibility analysis and recommendations
+### 3. Test Basic Functionality
+
+Select quick start queries to verify system functionality:
+
+```
+"What housing grants am I eligible for as a Singapore citizen?"
+"I earn $6000/month, what's my housing budget?"
+"Can you provide a list of flats that are suitable for me?"
+```
+
+## Features
+
+### Property Search and Analysis
+
+- **Multi-Portal Integration**: Simultaneous search across major property platforms
+- **Advanced Filtering**: Price range, location, property type, and amenity filtering
+- **Ranking Algorithm**: Intelligent property ranking based on user criteria
+- **URL Validation**: Real-time verification of property listing accuracy
+
+### Grant and Subsidy Assessment
+
+- **Eligibility Analysis**: Comprehensive assessment of available housing grants
+- **Document Research**: Integration with official government sources
+- **Personalized Recommendations**: Tailored grant suggestions based on user profile
+- **Application Guidance**: Step-by-step application process assistance
+
+### Financial Modeling
+
+- **Affordability Calculator**: TDSR-compliant affordability assessment
+- **Loan Analysis**: Detailed repayment calculations with multiple scenarios
+- **CPF Optimization**: Strategic CPF utilization recommendations
+- **Risk Assessment**: Comprehensive financial risk analysis
+
+### AWS S3 Bucket & Knowledge Base Integration for RAG Pipeline
+
+- **Official Policies**: Access to current Singapore housing regulations
+- **Real-Time Updates**: Dynamic integration with government policy changes
+- **Contextual Guidance**: Policy-aware recommendations and advice
+- **Compliance Checking**: Automated regulatory compliance verification
+
+## API Documentation
+
+### Core Search Functions
+
+#### `web_search(query, max_results=10)`
+Enhanced web search with Singapore-specific filtering.
+
+**Parameters:**
+- `query` (str): Search query
+- `max_results` (int): Maximum results to return
+
+**Returns:** List of search results with metadata
+
+#### `property_search(query, max_results=20, sites=None)`
+Multi-platform property search.
+
+**Parameters:**
+- `query` (str): Property search criteria
+- `max_results` (int): Maximum listings to return
+- `sites` (list): Specific sites to search
+
+**Returns:** Structured property listings
+
+### Financial Analysis Functions
+
+#### `calculate_affordability(income, debt, deposit)`
+Comprehensive affordability analysis.
+
+**Parameters:**
+- `income` (float): Monthly gross income
+- `debt` (float): Existing monthly debt obligations
+- `deposit` (float): Available deposit amount
+
+**Returns:** Detailed affordability assessment
+
+#### `calculate_cpf_utilization(price, balance, property_type)`
+CPF usage optimization.
+
+**Parameters:**
+- `price` (float): Property price
+- `balance` (dict): CPF account balances
+- `property_type` (str): HDB/Private property type
+
+**Returns:** Optimized CPF utilization strategy
+
+### AWS Integration Functions
+
+#### `aws_rag_search(query, search_type="SEMANTIC")`
+Knowledge Base search for official policies.
+
+**Parameters:**
+- `query` (str): Search query
+- `search_type` (str): SEMANTIC or HYBRID search
+
+**Returns:** Policy-relevant information with sources
 
 ## Testing
 
-### Sample Queries
-- **Property Search**: "Find 3-room HDB flats in Tampines under $500,000"
-- **Grant Assessment**: "What housing grants am I eligible for as a Singapore citizen earning $6,000/month?"
-- **Financial Analysis**: "Calculate affordability for $8,000 monthly income with $100,000 CPF"
+### User Acceptance Testing Scenarios
 
-### Validation Tools
-```python
-# Check system status
-from tools_consolidated import get_tool_status, get_system_status
+1. **First-Time Buyer Journey**
+   ```
+   Input: "I'm 28, Singapore citizen, earning $5500/month, looking for my first home"
+   Expected: Profile collection → Grant assessment → Property recommendations → Financial analysis
+   ```
 
-# Validate AWS configuration
-from tools_consolidated.aws import validate_aws_rag_configuration
-```
+2. **Property Upgrade Scenario**  
+   ```
+   Input: "Current 3-room HDB owner, want to upgrade to 4-room, budget $600k"
+   Expected: Upgrade eligibility → Property search → Financial comparison → Timeline guidance
+   ```
 
-## Error Handling
+3. **Investment Property Analysis**
+   ```
+   Input: "Looking for investment property, budget $1.2M, rental yield analysis"
+   Expected: Investment-focused search → Yield calculations → Market analysis → Risk assessment
+   ```
 
-The system implements comprehensive error handling:
-- **Graceful Degradation**: Missing dependencies don't break core functionality
-- **Fallback Mechanisms**: Alternative tools when primary services unavailable
-- **User-Friendly Messages**: Clear error communication without technical jargon
-- **Logging**: Detailed logging for debugging and monitoring
-
-## Performance Considerations
-
-- **Caching**: TTL-based caching for property portal searches
-- **Rate Limiting**: Respectful crawling with domain-specific delays
-- **Session Management**: Persistent HTTP sessions for improved performance
-- **Resource Management**: Automatic cleanup and memory management
-
-## Security Features
-
-- **Robots.txt Compliance**: Respects website crawling policies
-- **Rate Limiting**: Prevents overwhelming external services
-- **Input Validation**: Comprehensive input sanitization
-- **Error Isolation**: Prevents cascading failures
-
-## Monitoring and Debugging
-
-### System Status Endpoints
-- Real-time tool availability checking
-- AWS connectivity validation
-- Agent system health monitoring
-
-### Logging Configuration
-```python
-import logging
-logging.basicConfig(
-    format="%(levelname)s | %(name)s | %(message)s",
-    level=logging.INFO
-)
-```
-
-## Contributing
-
-### Development Setup
-1. Clone the repository
-2. Install development dependencies
-3. Configure environment variables
-4. Run tests to verify setup
-
-### Tool Development
-New tools should be added to the appropriate category in `tools_consolidated/` and registered in `registry.py`.
-
-### Agent Development
-New agents should follow the established pattern and be imported in the orchestrator for coordination.
-
-## License
-
-[Specify your license here]
-
-## Support
-
-For technical support or questions:
-- Check system status using built-in validation tools
-- Review logs for error details
-- Ensure all environment variables are properly configured
-- Verify AWS permissions and Knowledge Base access
-
-## Changelog
-
-### Version 1.0.0
-- Initial release with full multi-agent architecture
-- AWS RAG integration
-- Consolidated tool system
-- Enhanced property portal search
-- Comprehensive financial calculations

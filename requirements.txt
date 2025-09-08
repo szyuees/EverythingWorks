@@ -1,33 +1,57 @@
-# Core Dependencies
-gradio>=4.0.0
-strands
-boto3
-python-dotenv
-requests
-beautifulsoup4==4.12.2
+strands-agents
+strands-agents-tools
 duckduckgo-search
+gradio
+pandas 
+pyyaml 
+pytest 
+python-dotenv 
+loguru
+requests
 
-# Optional Dependencies for Enhanced Features
-markdownify  # For HTML to markdown conversion
-urllib3      # For robust HTTP handling
+# New RAG dependencies
+sentence-transformers>=2.2.0
+numpy>=1.21.0
+pandas>=1.3.0
 
-# Data Processing
-pandas       # For data manipulation if needed
-numpy        # For numerical calculations
+# Enhanced UI dependencies  
+plotly>=5.0.0
+faiss-cpu
 
-# Development and Testing
-pytest       # For future testing
-logging      # Built-in but explicit
 
-# Note: The following were consolidated into tools_consolidated/
-# - Individual tool modules are now organized by category
-# - Enhanced HTTP handling is centralized
-# - Tool registry manages dependencies automatically
+# Core agent framework
+strands-agents>=0.1.0
+strands-agents-tools>=0.1.0
 
-# AWS Dependencies (required for full functionality)
-# boto3 - Already included above
-# botocore - Comes with boto3
+# Web search and HTTP
+duckduckgo-search>=3.8.0
+requests>=2.31.0
 
-# Optional: For advanced features
-# plotly    # For data visualization (if needed later)
-# streamlit # Alternative to Gradio (if needed)
+# UI Framework  
+gradio>=4.0.0
+
+# Data processing
+pandas>=1.3.0
+pyyaml>=6.0
+numpy>=1.21.0
+
+# Development and testing
+pytest>=7.0.0
+python-dotenv>=1.0.0
+loguru>=0.7.0
+
+# AWS integration
+boto3>=1.34.0
+botocore>=1.34.0
+
+# Enhanced visualization (optional)
+plotly>=5.0.0
+
+# Additional utilities
+typing-extensions>=4.5.0
+
+#Web-search functinos
+beautifulsoup4 
+markdownify 
+requests 
+urllib3
