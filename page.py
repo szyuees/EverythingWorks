@@ -381,7 +381,7 @@ with gr.Blocks(
     </div>
     """)
     initial_history = [
-        {"role": "assistant", "content": "Hi! I am a housing chatbot here to answer any housing-related queries you might have."}
+        {"role": "assistant", "content": "Hi! I am a housing chatbot here to answer any housing-related queries you might have.🤩"}
     ]
     with gr.Row():
         # Main conversation area
