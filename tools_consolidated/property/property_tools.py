@@ -3,6 +3,7 @@ import logging
 from typing import Dict, List, Any, Optional
 from strands import tool
 from urllib.parse import urlparse
+import re
 
 logger = logging.getLogger(__name__)
 
@@ -37,59 +38,153 @@ try:
 except ImportError:
     logger.info("HTTP tools not available - URL validation disabled")
 
+def extract_price_from_text(text: str) -> Optional[float]:
+    """Extract price from text content"""
+    if not text:
+        return None
+    
+    # Look for price patterns like $800,000 or $800k
+    price_patterns = [
+        r'\$\s*(\d{1,3}(?:,\d{3})*)',  # $800,000
+        r'\$\s*(\d+)k',                # $800k
+        r'SGD\s*(\d{1,3}(?:,\d{3})*)', # SGD 800,000
+    ]
+    
+    for pattern in price_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            price_str = match.group(1).replace(',', '')
+            try:
+                if 'k' in match.group(0).lower():
+                    return float(price_str) * 1000
+                else:
+                    return float(price_str)
+            except ValueError:
+                continue
+    return None
+
+def validate_property_data(properties: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Validate and enrich property data with realistic checks"""
+    validated_properties = []
+    
+    for prop in properties:
+        try:
+            # Basic validation - skip if no URL or title
+            if not prop.get('url') or not prop.get('title'):
+                continue
+            
+            # Price validation and extraction
+            price = prop.get('price')
+            if not price or price == 0:
+                # Try to extract price from title or snippet
+                price = extract_price_from_text(prop.get('title', '')) or \
+                       extract_price_from_text(prop.get('snippet', ''))
+            
+            if price and isinstance(price, (int, float)) and price > 100000:
+                prop['price'] = int(price)
+            else:
+                prop['price'] = None
+                prop['price_note'] = "Price not available - contact agent"
+            
+            # Room extraction validation
+            rooms = prop.get('rooms')
+            if not rooms:
+                title_lower = prop.get('title', '').lower()
+                snippet_lower = prop.get('snippet', '').lower()
+                
+                for text in [title_lower, snippet_lower]:
+                    room_match = re.search(r'(\d+)[-\s]?(?:room|bed)', text)
+                    if room_match:
+                        rooms = int(room_match.group(1))
+                        break
+            
+            prop['rooms'] = rooms or 'Not specified'
+            
+            # Location validation
+            location = prop.get('location')
+            if not location or location == 'Singapore':
+                title_text = prop.get('title', '').lower()
+                url_text = prop.get('url', '').lower()
+                
+                sg_areas = [
+                    'tampines', 'jurong', 'woodlands', 'punggol', 'sengkang', 'bishan',
+                    'toa payoh', 'bedok', 'hougang', 'ang mo kio', 'clementi', 'bukit batok',
+                    'yishun', 'bukit merah', 'queenstown', 'kallang', 'marine parade',
+                    'pasir ris', 'choa chu kang', 'bukit panjang', 'sembawang'
+                ]
+                
+                for area in sg_areas:
+                    if area in title_text or area in url_text:
+                        location = area.title()
+                        break
+            
+            prop['location'] = location or 'Singapore'
+            
+            # URL validation - check if specific listing or category page
+            url = prop.get('url', '')
+            is_specific_listing = any(indicator in url.lower() for indicator in [
+                '/listing/', '/property/', '/unit/', '/flat/', '/apartment/',
+                'id=', 'propertyid', 'listingid'
+            ])
+            
+            if not is_specific_listing:
+                prop['url_type'] = 'category_page'
+                prop['note'] = 'Category page - multiple listings available'
+            else:
+                prop['url_type'] = 'specific_listing'
+            
+            # Add data quality score
+            quality_score = 0
+            if prop.get('price') and isinstance(prop['price'], int):
+                quality_score += 3
+            if prop.get('rooms') and prop['rooms'] != 'Not specified':
+                quality_score += 2
+            if prop.get('location') and prop['location'] != 'Singapore':
+                quality_score += 2
+            if is_specific_listing:
+                quality_score += 3
+            
+            prop['data_quality_score'] = quality_score
+            validated_properties.append(prop)
+            
+        except Exception as e:
+            logger.warning(f"Property validation error: {e}")
+            prop['validation_error'] = str(e)
+            validated_properties.append(prop)
+    
+    # Sort by data quality score (highest first)
+    validated_properties.sort(key=lambda x: x.get('data_quality_score', 0), reverse=True)
+    
+    return validated_properties
+
+
 @tool
 def property_search(query: str, max_results: int = 6, sites: List[str] = None) -> List[Dict[str, Any]]:
-    """
-    Search property portals and return validated listing URLs.
-    Primary method uses portal search with Google CSE, fallback to DuckDuckGo.
-    """
+    """Enhanced property search with validation"""
     try:
         if sites is None:
-            sites = ["propertyguru.com.sg", "99.co"]
-
-        # Check if portal search is available
-        if not PORTAL_SEARCH_AVAILABLE or search_property_portals is None:
-            logger.info("Portal search not available, using web search fallback")
-            return _fallback_property_search(query, max_results, sites)
-
+            sites = ["propertyguru.com.sg", "99.co", "hdb.gov.sg", "edgeprop.sg"]
+        
         # Use portal search
-        search_results = search_property_portals(query, sites=sites, max_results=max_results)
-
-        # Handle empty or error results
-        if not search_results or not isinstance(search_results, list):
-            logger.warning("Portal search returned no results, using fallback")
-            return _fallback_property_search(query, max_results, sites)
-
-        # Convert to standardized listing format
-        listings = []
-        for result in search_results:
-            if isinstance(result, dict):
-                listing = {
-                    "name": result.get("title", ""),
-                    "snippet": result.get("snippet", ""),
-                    "url": result.get("url", ""),
-                    "domain": result.get("domain", ""),
-                    "price": result.get("price", 0),
-                    "source": result.get("source", "portal_search"),
-                    "rooms": _extract_rooms_from_title(result.get("title", "")),
-                    "location": _extract_location_from_title(result.get("title", "")),
-                    "ranking_reason": f"Found via {result.get('source', 'search')}"
-                }
-                listings.append(listing)
-
-        # Validate URLs if HTTP tools available
-        if HTTP_TOOLS_AVAILABLE and validate_urls and listings:
-            try:
-                validated_listings = validate_urls(listings)
-                return validated_listings if validated_listings else listings
-            except Exception as e:
-                logger.warning(f"URL validation failed: {e}")
-                return listings
-
-        return listings if listings else _fallback_property_search(query, max_results, sites)
-
+        results = search_property_portals(query, sites, max_results)
+        
+        if not results:
+            return [{"error": "No properties found for the given criteria"}]
+        
+        # Validate and enrich property data
+        validated_results = validate_property_data(results)
+        
+        # Add system note about data limitations
+        if validated_results:
+            validated_results[0]['system_note'] = (
+                "Property data is aggregated from multiple sources. "
+                "Prices and availability should be verified directly with listing agents."
+            )
+        
+        return validated_results[:max_results]
+        
     except Exception as e:
-        logger.error(f"Property search failed: {e}")
+        logger.error(f"Property search error: {e}")
         return [{"error": f"Property search failed: {str(e)}"}]
 
 def _fallback_property_search(query: str, max_results: int, sites: List[str]) -> List[Dict[str, Any]]:
@@ -230,39 +325,274 @@ def filter_and_rank_properties(results: List[Dict[str, Any]], location: str = No
 
 @tool
 def scrape_property_details(url: str) -> Dict[str, Any]:
-    """Scrape additional property details from a listing URL"""
+    """
+    Scrape detailed property information from Singapore property listing URLs
+    with proper error handling and site-specific parsing
+    """
     try:
-        if not HTTP_TOOLS_AVAILABLE or enhanced_http_request is None:
-            return {"error": "HTTP tools not available for scraping"}
+        # Check if beautifulsoup4 is available
+        try:
+            from bs4 import BeautifulSoup
+        except ImportError:
+            return {
+                "error": "Property detail scraping unavailable - missing beautifulsoup4 dependency",
+                "url": url,
+                "suggestion": "Install beautifulsoup4: pip install beautifulsoup4"
+            }
         
-        if not BS4_AVAILABLE:
-            return {"error": "BeautifulSoup4 not available - install with: pip install beautifulsoup4"}
+        # Basic URL validation
+        if not url or not url.startswith(('http://', 'https://')):
+            return {"error": "Invalid URL provided", "url": url}
         
-        response_data = enhanced_http_request(url)
-        if not isinstance(response_data, dict) or not response_data.get('success'):
-            return {"error": "Failed to fetch property page"}
+        # Import required modules
+        import requests
+        import time
+        from urllib.parse import urlparse
         
-        html_content = response_data.get('content', '')
-        if not html_content:
-            return {"error": "No content received from URL"}
-            
-        soup = BeautifulSoup(html_content, 'html.parser')
+        domain = urlparse(url).netloc.lower()
         
-        # Extract additional details
-        details = {
-            'url': url,
-            'title': _safe_extract_text(soup.find('h1')) if soup.find('h1') else '',
-            'description': _extract_description(soup),
-            'amenities': _extract_amenities(soup),
-            'floor_info': _extract_floor_info(soup),
-            'area_info': _extract_area_info(soup)
+        # Rate limiting - respect the websites
+        time.sleep(1)
+        
+        # Make request with proper headers
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
         }
         
-        return details
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
         
+        soup = BeautifulSoup(response.content, 'html.parser')
+        
+        # Initialize result structure
+        property_details = {
+            "url": url,
+            "source_domain": domain,
+            "scraping_timestamp": time.strftime('%Y-%m-%d %H:%M:%S'),
+            "success": True
+        }
+        
+        # Site-specific parsing logic
+        if 'propertyguru.com.sg' in domain:
+            property_details.update(_parse_propertyguru(soup))
+        elif '99.co' in domain:
+            property_details.update(_parse_99co(soup))
+        elif 'hdb.gov.sg' in domain:
+            property_details.update(_parse_hdb(soup))
+        elif 'edgeprop.sg' in domain:
+            property_details.update(_parse_edgeprop(soup))
+        else:
+            # Generic parsing for unknown sites
+            property_details.update(_parse_generic(soup))
+            property_details["note"] = f"Generic parsing used for {domain}"
+        
+        # Apply validation to scraped data
+        validated_details = validate_property_data([property_details])
+        
+        if validated_details:
+            result = validated_details[0]
+            result["scraping_method"] = "detailed_scrape"
+            return result
+        else:
+            return {
+                "error": "Property details could not be validated",
+                "url": url,
+                "raw_data_available": bool(property_details)
+            }
+        
+    except requests.exceptions.Timeout:
+        return {
+            "error": "Request timeout - website took too long to respond",
+            "url": url,
+            "suggestion": "Try again later or check if URL is accessible"
+        }
+    except requests.exceptions.RequestException as e:
+        return {
+            "error": f"Network error: {str(e)}",
+            "url": url,
+            "suggestion": "Check internet connection and URL validity"
+        }
     except Exception as e:
         logger.error(f"Property scraping error for {url}: {e}")
-        return {"error": str(e)}
+        return {
+            "error": f"Scraping failed: {str(e)}",
+            "url": url,
+            "suggestion": "URL may not be a valid property listing"
+        }
+
+def _parse_propertyguru(soup) -> Dict[str, Any]:
+    """Parse PropertyGuru specific elements"""
+    details = {}
+    
+    try:
+        # Title
+        title_elem = soup.find('h1', class_='property-title') or soup.find('h1')
+        if title_elem:
+            details['title'] = title_elem.get_text().strip()
+        
+        # Price
+        price_elem = soup.find('span', class_='price') or soup.find(class_='property-price')
+        if price_elem:
+            price_text = price_elem.get_text().strip()
+            details['price_text'] = price_text
+            # Extract numeric price
+            price_num = extract_price_from_text(price_text)
+            if price_num:
+                details['price'] = price_num
+        
+        # Property details
+        details_section = soup.find('div', class_='property-details') or soup.find('div', class_='listing-details')
+        if details_section:
+            # Extract bedrooms, bathrooms, size, etc.
+            for item in details_section.find_all(['span', 'div']):
+                text = item.get_text().strip().lower()
+                if 'bed' in text:
+                    beds_match = re.search(r'(\d+)', text)
+                    if beds_match:
+                        details['bedrooms'] = int(beds_match.group(1))
+                elif 'bath' in text:
+                    baths_match = re.search(r'(\d+)', text)
+                    if baths_match:
+                        details['bathrooms'] = int(baths_match.group(1))
+                elif 'sqft' in text or 'sq ft' in text:
+                    size_match = re.search(r'(\d+(?:,\d+)?)', text.replace(',', ''))
+                    if size_match:
+                        details['size_sqft'] = int(size_match.group(1).replace(',', ''))
+        
+        # Location
+        location_elem = soup.find('span', class_='location') or soup.find(class_='property-location')
+        if location_elem:
+            details['location'] = location_elem.get_text().strip()
+            
+    except Exception as e:
+        details['parsing_error'] = f"PropertyGuru parsing error: {str(e)}"
+    
+    return details
+
+def _parse_99co(soup) -> Dict[str, Any]:
+    """Parse 99.co specific elements"""
+    details = {}
+    
+    try:
+        # Title
+        title_elem = soup.find('h1') or soup.find(class_='listing-title')
+        if title_elem:
+            details['title'] = title_elem.get_text().strip()
+        
+        # Price - 99.co specific selectors
+        price_elem = soup.find(class_='price-display') or soup.find(class_='listing-price')
+        if price_elem:
+            price_text = price_elem.get_text().strip()
+            details['price_text'] = price_text
+            price_num = extract_price_from_text(price_text)
+            if price_num:
+                details['price'] = price_num
+        
+        # Property attributes
+        attrs = soup.find_all(class_='attribute-item') or soup.find_all(class_='property-attribute')
+        for attr in attrs:
+            text = attr.get_text().strip().lower()
+            if 'bedroom' in text:
+                beds_match = re.search(r'(\d+)', text)
+                if beds_match:
+                    details['bedrooms'] = int(beds_match.group(1))
+            elif 'bathroom' in text:
+                baths_match = re.search(r'(\d+)', text)
+                if baths_match:
+                    details['bathrooms'] = int(baths_match.group(1))
+    
+    except Exception as e:
+        details['parsing_error'] = f"99.co parsing error: {str(e)}"
+    
+    return details
+
+def _parse_hdb(soup) -> Dict[str, Any]:
+    """Parse HDB.gov.sg specific elements"""
+    details = {}
+    
+    try:
+        # HDB resale listings have specific structure
+        details['property_type'] = 'HDB'
+        
+        # Look for flat type
+        flat_type_elem = soup.find(text=re.compile(r'\d+\s*room', re.I))
+        if flat_type_elem:
+            details['flat_type'] = flat_type_elem.strip()
+            
+        # Look for price in HDB format
+        price_elems = soup.find_all(text=re.compile(r'\$[\d,]+'))
+        for price_text in price_elems:
+            price_num = extract_price_from_text(price_text)
+            if price_num and price_num > 100000:  # Reasonable HDB price
+                details['price'] = price_num
+                details['price_text'] = price_text.strip()
+                break
+                
+    except Exception as e:
+        details['parsing_error'] = f"HDB parsing error: {str(e)}"
+    
+    return details
+
+def _parse_edgeprop(soup) -> Dict[str, Any]:
+    """Parse EdgeProp specific elements"""
+    details = {}
+    
+    try:
+        # Similar to PropertyGuru but with EdgeProp specific classes
+        title_elem = soup.find('h1') or soup.find(class_='property-name')
+        if title_elem:
+            details['title'] = title_elem.get_text().strip()
+            
+        # EdgeProp price format
+        price_elem = soup.find(class_='price') or soup.find(class_='property-price-value')
+        if price_elem:
+            price_text = price_elem.get_text().strip()
+            details['price_text'] = price_text
+            price_num = extract_price_from_text(price_text)
+            if price_num:
+                details['price'] = price_num
+                
+    except Exception as e:
+        details['parsing_error'] = f"EdgeProp parsing error: {str(e)}"
+    
+    return details
+
+def _parse_generic(soup) -> Dict[str, Any]:
+    """Generic parsing for unknown property sites"""
+    details = {}
+    
+    try:
+        # Try to find title
+        title_elem = soup.find('h1') or soup.find('title')
+        if title_elem:
+            details['title'] = title_elem.get_text().strip()
+        
+        # Look for price patterns in the entire page
+        page_text = soup.get_text()
+        price_num = extract_price_from_text(page_text)
+        if price_num:
+            details['price'] = price_num
+        
+        # Try to find property type
+        text_lower = page_text.lower()
+        if 'hdb' in text_lower:
+            details['property_type'] = 'HDB'
+        elif 'condo' in text_lower or 'condominium' in text_lower:
+            details['property_type'] = 'Private'
+        elif 'executive' in text_lower and 'condo' in text_lower:
+            details['property_type'] = 'EC'
+            
+        details['parsing_method'] = 'generic'
+        
+    except Exception as e:
+        details['parsing_error'] = f"Generic parsing error: {str(e)}"
+    
+    return details
 
 def _extract_rooms_from_title(title: str) -> int:
     """Extract number of rooms from property title"""

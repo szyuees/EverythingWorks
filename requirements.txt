@@ -4,7 +4,7 @@ strands
 boto3
 python-dotenv
 requests
-beautifulsoup4
+beautifulsoup4==4.12.2
 duckduckgo-search
 
 # Optional Dependencies for Enhanced Features
