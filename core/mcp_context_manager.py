@@ -191,6 +191,116 @@ class MCPContextManager:
         except Exception as e:
             logger.error(f"Error logging interaction for {user_id}: {e}")
     
+    def _extract_profile_updates(self, user_id, message):
+        """Extract profile information from user message"""
+        if not self.context_manager:
+            return
+        
+        try:
+            message_lower = message.lower()
+            updates = {}
+            
+            # Enhanced citizenship extraction - FIXED
+            if any(term in message_lower for term in ['singaporean', 'singapore citizen', 'citizen of singapore']):
+                updates['citizenship_status'] = 'Singapore Citizen'
+            elif 'citizen' in message_lower and 'singapore' in message_lower:
+                updates['citizenship_status'] = 'Singapore Citizen'
+            elif any(term in message_lower for term in ['pr', 'permanent resident', 'perm resident']):
+                updates['citizenship_status'] = 'Permanent Resident'
+            elif any(term in message_lower for term in ['foreigner', 'foreign', 'work permit', 'employment pass']):
+                updates['citizenship_status'] = 'Foreigner'
+            
+            # Enhanced income extraction with better patterns
+            import re
+            income_patterns = [
+                r'\$\s*(\d{1,2}[,\s]*\d{3,})',  # $6000, $6,000
+                r'(\d{1,2}[,\s]*\d{3,})\s*(?:dollars?|sgd|per month|monthly)',  # 6000 dollars
+                r'earn(?:ing)?\s+\$?(\d{1,2}[,\s]*\d{3,})',  # earning $6000
+                r'income\s+(?:of\s+)?\$?(\d{1,2}[,\s]*\d{3,})',  # income of $6000
+                r'(\d{1,2})k\s*(?:per month|monthly|income)',  # 6k per month
+            ]
+            
+            for pattern in income_patterns:
+                income_match = re.search(pattern, message_lower)
+                if income_match:
+                    try:
+                        income_str = income_match.group(1).replace(',', '').replace(' ', '')
+                        if 'k' in message_lower and income_match:
+                            # Handle "6k" format
+                            k_match = re.search(r'(\d+)k', message_lower)
+                            if k_match:
+                                income = float(k_match.group(1)) * 1000
+                        else:
+                            income = float(income_str)
+                        
+                        if 1000 <= income <= 50000:  # Reasonable income range
+                            updates['gross_monthly_income'] = income
+                            break
+                    except (ValueError, AttributeError):
+                        continue
+            
+            # Extract locations (Singapore areas)
+            sg_areas = ['tampines', 'jurong', 'woodlands', 'punggol', 'sengkang', 'bishan', 'toa payoh', 
+                       'bedok', 'hougang', 'ang mo kio', 'clementi', 'bukit batok', 'yishun']
+            mentioned_areas = [area for area in sg_areas if area in message_lower]
+            if mentioned_areas:
+                try:
+                    current_areas = self.context_manager.user_profiles[user_id].preferred_locations or []
+                    updates['preferred_locations'] = list(set(current_areas + mentioned_areas))
+                except (KeyError, AttributeError):
+                    updates['preferred_locations'] = mentioned_areas
+            
+            # Extract property type and room count
+            if any(term in message_lower for term in ['hdb', 'public housing']):
+                updates['flat_type'] = 'HDB'
+            elif any(term in message_lower for term in ['private', 'condo', 'condominium']):
+                updates['flat_type'] = 'Private'
+            elif any(term in message_lower for term in ['ec', 'executive condo']):
+                updates['flat_type'] = 'EC'
+            
+            # Extract room count
+            room_patterns = [
+                r'(\d+)[-\s]?room',
+                r'(\d+)[-\s]?bed'
+            ]
+            for pattern in room_patterns:
+                room_match = re.search(pattern, message_lower)
+                if room_match:
+                    room_count = room_match.group(1)
+                    updates['room_count'] = f"{room_count}-room"
+                    break
+            
+            # Extract budget information - NEW
+            budget_patterns = [
+                r'under\s+\$?(\d{3,}k?)',  # under $800k
+                r'below\s+\$?(\d{3,}k?)',  # below $800k
+                r'less than\s+\$?(\d{3,}k?)',  # less than $800k
+                r'budget\s+(?:of\s+)?\$?(\d{3,}k?)',  # budget of $800k
+            ]
+            
+            for pattern in budget_patterns:
+                budget_match = re.search(pattern, message_lower)
+                if budget_match:
+                    try:
+                        budget_str = budget_match.group(1)
+                        if 'k' in budget_str:
+                            budget = float(budget_str.replace('k', '')) * 1000
+                        else:
+                            budget = float(budget_str)
+                        
+                        if budget > 100000:  # Reasonable property budget
+                            updates['budget_range'] = (budget * 0.8, budget)  # 80% to max
+                            break
+                    except ValueError:
+                        continue
+                        
+            if updates:
+                self.context_manager.update_user_profile(user_id, **updates)
+                logger.info(f"Updated profile for {user_id}: {updates}")
+                
+        except Exception as e:
+            logger.warning(f"Error extracting profile updates: {e}")
+    
     def get_contextual_prompt(self, user_id: str, agent_type: str) -> str:
         """Generate contextual prompt based on user journey with error handling"""
         try:
