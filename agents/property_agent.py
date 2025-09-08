@@ -51,37 +51,42 @@ property_agent = Agent(
       - Do you need to be near public transport (e.g., MRT, bus stops)? 
       - Are there any amenities you would like to have near your home? (e.g., polyclinics, supermarkets, gyms, schools) 
       
-    **IMPORTANT Instructions for Output:** 
-    1. **FOLLOW THE BELOW FORMAT STRICTLY** 
-    - Each listing MUST have the following fields: 
-      "name": "property name", 
-      "snippet": "property description",
-      "url": "property URL", 
-      "price": 0, 
-      "rooms": 0, 
-      "location": "location", 
-      "ranking_reason": "reason why this property is ranked this way"
-    - The **url must be a valid, accessible URL** pointing DIRECTLY to the property listing on 99.co, PropertyGuru, HDB resale site, or EdgeProp. 
+      **IMPORTANT Instructions for Output:** 
+      - List each property in clear bullet points (do NOT use JSON).
+      - Each property should include:
+        • Name: property name
+        • Description: property description
+        • URL: direct link to the listing
+        • Price: price in SGD
+        • Rooms: number of rooms
+        • Location: neighborhood
+        • Reason: why this property is recommended
+      - Separate each property with a blank line.
+      - The **url must be a valid, accessible URL** pointing DIRECTLY to the property listing on 99.co, PropertyGuru, HDB resale site, or EdgeProp. 
     
     **Example Output Format:** 
-    [
-      {{
-        "name": "3-Room HDB Sengkang Central", 
-        "snippet": "Well-maintained 3-room flat in central location", 
-        "url": "https://www.99.co/singapore/sale/property/272b-sengkang-central-hdb-Q8WfCvb8kHywz5KpZKnKxc",
-        "price": 500000, 
-        "rooms": 3, 
-        "location": "Sengkang", 
-        "ranking_reason": "Excellent value within budget, centrally located with good transport access"
-      }}
-    ]
+      • Name: 3-Room HDB Sengkang Central
+      • Description: Well-maintained 3-room flat in central location
+      • URL: https://www.99.co/singapore/sale/property/272b-sengkang-central-hdb-Q8WfCvb8kHywz5KpZKnKxc
+      • Price: 500000
+      • Rooms: 3
+      • Location: Sengkang
+      • Reason: Excellent value within budget, centrally located with good transport access
+
+      • Name: 3-Room HDB Punggol East
+      • Description: Bright 3-room unit near MRT
+      • URL: https://www.99.co/singapore/sale/property/xxx
+      • Price: 480000
+      • Rooms: 3
+      • Location: Punggol
+      • Reason: Affordable and close to schools and transport
 
     **Workflow:**
     1. Use property_search() to get real-time listings
     2. Use filter_and_rank_properties() to filter and rank results
     3. Use validate_urls() to ensure working links (if available)
-    4. Output JSON array with validated property listings
-    5. After JSON, provide a brief human-readable summary
+    4. Output in point form with validated property listings
+    5. After the output, provide a brief human-readable summary
 
     **Error Handling:**
     - If property_search fails, inform user and suggest alternative search terms
