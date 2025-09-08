@@ -193,8 +193,9 @@ class MCPContextManager:
     
     def _extract_profile_updates(self, user_id, message):
         """Extract profile information from user message"""
-        if not self.context_manager:
-            return
+        # CRITICAL BUG FIX: Remove the incorrect self.context_manager check
+        # The original code had: if not self.context_manager: return
+        # This was wrong because self.context_manager doesn't exist in this class
         
         try:
             message_lower = message.lower()
@@ -245,7 +246,8 @@ class MCPContextManager:
             mentioned_areas = [area for area in sg_areas if area in message_lower]
             if mentioned_areas:
                 try:
-                    current_areas = self.context_manager.user_profiles[user_id].preferred_locations or []
+                    # FIXED: Use self instead of self.context_manager
+                    current_areas = self.user_profiles[user_id].preferred_locations or []
                     updates['preferred_locations'] = list(set(current_areas + mentioned_areas))
                 except (KeyError, AttributeError):
                     updates['preferred_locations'] = mentioned_areas
@@ -295,7 +297,8 @@ class MCPContextManager:
                         continue
                         
             if updates:
-                self.context_manager.update_user_profile(user_id, **updates)
+                # FIXED: Use self instead of self.context_manager
+                self.update_user_profile(user_id, **updates)
                 logger.info(f"Updated profile for {user_id}: {updates}")
                 
         except Exception as e:

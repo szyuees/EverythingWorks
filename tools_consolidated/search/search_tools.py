@@ -1,149 +1,113 @@
-# tools_consolidated/search/search_tools.py
+# tools_consolidated/search/search_tools.py - Fixed with updated ddgs import
 import logging
-from typing import Dict, List, Any, Optional
+from typing import List, Dict, Any, Optional
 from strands import tool
-from urllib.parse import urlparse
 
 logger = logging.getLogger(__name__)
 
-# Check AWS RAG availability - SAFE IMPORT ORDER
+# Import AWS tools with fallback
 AWS_RAG_AVAILABLE = False
-aws_singapore_search = None
-
-# Only try consolidated location since this is a new repo
 try:
-    from tools_consolidated.aws.aws_tools import singapore_housing_aws_search as aws_singapore_search
+    from tools_consolidated.aws import aws_rag_search, singapore_housing_aws_search
     AWS_RAG_AVAILABLE = True
     logger.info("AWS RAG tools loaded from consolidated location")
 except ImportError:
-    logger.info("AWS RAG tools not available - will use web search only")
-    AWS_RAG_AVAILABLE = False
-
-# Check DuckDuckGo availability
-DUCKDUCKGO_AVAILABLE = False
-try:
-    from duckduckgo_search import DDGS
-    DUCKDUCKGO_AVAILABLE = True
-except ImportError:
-    logger.warning("DuckDuckGo search not available - install duckduckgo-search package")
+    logger.warning("AWS RAG tools not available from consolidated location")
 
 @tool
-def web_search(query: str, max_results: int = 5, site_filter: str = None) -> List[Dict[str, Any]]:
-    """Enhanced web search using DuckDuckGo with better error handling and filtering"""
+def web_search(query: str, max_results: int = 8, sites: List[str] = None) -> List[Dict[str, Any]]:
+    """Enhanced web search with site filtering and fallback mechanisms"""
     try:
-        if not DUCKDUCKGO_AVAILABLE:
-            return [{"error": "DuckDuckGo search not available - missing dependency 'duckduckgo-search'"}]
+        # Updated import for new ddgs package
+        from ddgs import DDGS
         
-        # Add site filter if specified
-        search_query = f"{query} site:{site_filter}" if site_filter else query
+        # Build search query with site filtering
+        if sites:
+            site_filters = " OR ".join([f"site:{site}" for site in sites])
+            search_query = f"({site_filters}) {query}"
+        else:
+            search_query = query
         
-        results = []
+        logger.info(f"Performing web search for: {search_query}")
+        
+        # Use new DDGS interface
         ddgs = DDGS()
-        search_results = ddgs.text(search_query, max_results=max_results)
+        results = ddgs.text(search_query, max_results=max_results)
         
-        for item in search_results or []:
-            result = {
-                "title": item.get("title", ""),
-                "snippet": item.get("body", ""),
-                "url": item.get("href", ""),
-                "domain": urlparse(item.get("href", "")).netloc if item.get("href") else "",
-                "source": "duckduckgo"
+        if not results:
+            logger.warning(f"No results found for query: {search_query}")
+            return []
+        
+        # Format results consistently
+        formatted_results = []
+        for result in results:
+            formatted_result = {
+                "title": result.get("title", ""),
+                "url": result.get("href", ""),
+                "snippet": result.get("body", ""),
+                "source": "ddgs"
             }
-            results.append(result)
-            
-        logger.info(f"Found {len(results)} search results for query: {query}")
-        return results if results else []
+            formatted_results.append(formatted_result)
         
+        logger.info(f"Found {len(formatted_results)} search results for query: {query}")
+        return formatted_results
+        
+    except ImportError:
+        logger.error("DDGS package not available. Install with: pip install ddgs")
+        return [{"error": "Search unavailable - missing ddgs package"}]
     except Exception as e:
         logger.error(f"Web search error: {e}")
         return [{"error": f"Search failed: {str(e)}"}]
 
 @tool
-def singapore_housing_search(query: str, search_type: str = "general", max_results: int = 5) -> List[Dict[str, Any]]:
-    """Enhanced Singapore-specific housing search with AWS RAG integration"""
-    
-    # Try AWS RAG first for relevant search types
-    if AWS_RAG_AVAILABLE and aws_singapore_search and search_type in ["grants", "policies"]:
-        try:
-            domain = "grant_schemes" if search_type == "grants" else "hdb_policies"
-            rag_result = aws_singapore_search(query, domain)
-            
-            # Check if RAG result is valid and useful
-            if rag_result and isinstance(rag_result, str) and len(rag_result.strip()) > 0:
-                if "error" not in str(rag_result).lower():
-                    return [{
-                        "source": "AWS_RAG", 
-                        "content": rag_result, 
-                        "type": "knowledge_base",
-                        "title": f"Singapore Housing {search_type.title()} Information",
-                        "url": "aws://knowledge-base",
-                        "snippet": rag_result[:200] + "..." if len(rag_result) > 200 else rag_result
-                    }]
-        except Exception as e:
-            logger.warning(f"AWS RAG search failed: {e}")
-    
-    # Fallback to web search with Singapore context
-    singapore_query = f"{query} Singapore"
-    
-    # Add search type specific terms and site filters
-    site_filter = None
-    if search_type == "grants":
-        singapore_query += " HDB grants CPF housing scheme"
-        site_filter = "hdb.gov.sg"
-    elif search_type == "policies": 
-        singapore_query += " HDB policy eligibility"
-        site_filter = "hdb.gov.sg"
-    elif search_type == "properties":
-        # For properties, suggest using property search tools instead
-        return [{
-            "title": "Property Search Recommendation",
-            "snippet": "For property listings, please use the property search tools for better results",
-            "url": "",
-            "domain": "",
-            "source": "system_recommendation",
-            "recommendation": "Use property_search tool for property listings"
-        }]
-    
-    results = web_search(singapore_query, max_results, site_filter)
-    
-    # Enhance results with priority marking for official sources
-    if results and isinstance(results, list):
-        official_domains = ['hdb.gov.sg', 'cpf.gov.sg', 'gov.sg', 'ura.gov.sg']
-        for result in results:
-            if isinstance(result, dict) and not result.get('error'):
-                url = result.get('url', '').lower()
-                if any(domain in url for domain in official_domains):
-                    result['priority'] = 'official'
-                    result['source_type'] = 'government'
-                else:
-                    result['priority'] = 'general'
-                    result['source_type'] = 'web'
+def singapore_housing_search(query: str, search_type: str = "general", max_results: int = 6) -> str:
+    """Singapore-specific housing search with AWS RAG integration and fallbacks"""
+    try:
+        # Enhanced query mapping for Singapore housing
+        enhanced_queries = {
+            "general": f"Singapore housing {query}",
+            "grants": f"Singapore housing grants eligibility {query} site:cpf.gov.sg OR site:hdb.gov.sg",
+            "policies": f"Singapore HDB housing policy regulations {query} site:hdb.gov.sg",
+            "market": f"Singapore property market trends {query} site:ura.gov.sg OR site:realis.sg"
+        }
         
-        # Sort by priority (official sources first)
-        try:
-            results.sort(key=lambda x: 0 if x.get('priority') == 'official' else 1)
-        except (AttributeError, TypeError):
-            pass  # Skip sorting if results have inconsistent structure
-    
-    return results
-
-@tool
-def validate_search_configuration() -> Dict[str, Any]:
-    """Validate search tool configuration and dependencies"""
-    config = {
-        'duckduckgo_available': DUCKDUCKGO_AVAILABLE,
-        'aws_rag_available': AWS_RAG_AVAILABLE,
-        'supported_search_types': ['general', 'grants', 'policies', 'properties'],
-        'official_domains': ['hdb.gov.sg', 'cpf.gov.sg', 'gov.sg', 'ura.gov.sg'],
-        'recommendations': []
-    }
-    
-    if not DUCKDUCKGO_AVAILABLE:
-        config['duckduckgo_error'] = "Install duckduckgo-search package: pip install duckduckgo-search"
-        config['recommendations'].append("Install duckduckgo-search for web search functionality")
-    
-    if not AWS_RAG_AVAILABLE:
-        config['aws_rag_error'] = "AWS RAG tools not configured - check AWS credentials and tools_consolidated.aws module"
-        config['recommendations'].append("Configure AWS credentials and tools for enhanced knowledge base search")
-    
-    return config
+        enhanced_query = enhanced_queries.get(search_type, f"Singapore housing {query}")
+        
+        # Try AWS RAG first if available
+        if AWS_RAG_AVAILABLE:
+            try:
+                domain_mapping = {
+                    "grants": "grant_schemes",
+                    "policies": "hdb_policies", 
+                    "market": "market_data"
+                }
+                domain = domain_mapping.get(search_type, "hdb_policies")
+                
+                aws_result = singapore_housing_aws_search(query, domain)
+                if aws_result and "error" not in str(aws_result).lower():
+                    logger.info(f"AWS RAG search successful for: {query}")
+                    return aws_result
+            except Exception as e:
+                logger.warning(f"AWS RAG search failed, falling back to web search: {e}")
+        
+        # Fallback to web search
+        logger.info(f"Using web search fallback for Singapore housing query: {enhanced_query}")
+        search_results = web_search(enhanced_query, max_results)
+        
+        if not search_results or (len(search_results) == 1 and "error" in search_results[0]):
+            return "No Singapore housing information found for your query."
+        
+        # Format results as readable text
+        formatted_response = f"**Singapore Housing Search Results for: {query}**\n\n"
+        
+        for i, result in enumerate(search_results[:max_results], 1):
+            if "error" not in result:
+                formatted_response += f"{i}. **{result.get('title', 'No title')}**\n"
+                formatted_response += f"   {result.get('snippet', 'No description')}\n"
+                formatted_response += f"   Source: {result.get('url', 'No URL')}\n\n"
+        
+        return formatted_response
+        
+    except Exception as e:
+        logger.error(f"Singapore housing search error: {e}")
+        return f"Singapore housing search failed: {str(e)}"
