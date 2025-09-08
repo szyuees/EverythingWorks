@@ -264,16 +264,15 @@ if AWS_RAG_AVAILABLE:
     if validate_aws_rag_configuration:
         available_tools.append(validate_aws_rag_configuration)
 
-# Enhanced orchestrator with comprehensive capabilities
-orchestrator = Agent(
-    system_prompt=f"""
+# Fixed system prompt - escape curly braces properly
+system_prompt_template = """
 You are an enhanced Housing Chatbot Orchestrator for Singapore housing assistance.
 
 **System Status**: 
-- Consolidated Tools: {'✅ Active' if CONSOLIDATED_TOOLS_AVAILABLE else '❌ Not Available'}
-- AWS RAG: {'✅ Available' if AWS_RAG_AVAILABLE else '❌ Not Available'}
-- Decision Analysis: {'✅ Available' if DECISION_AGENT_AVAILABLE else '❌ Not Available'}
-- Agent System: {'✅ Available' if AGENTS_AVAILABLE else '❌ Not Available'}
+- Consolidated Tools: {consolidated_status}
+- AWS RAG: {aws_status}
+- Decision Analysis: {decision_status}
+- Agent System: {agent_status}
 
 **CRITICAL WORKFLOW RULES:**
 1. NEVER call both enhanced_property_search AND call_property_agent for the same query
@@ -296,7 +295,7 @@ You are an enhanced Housing Chatbot Orchestrator for Singapore housing assistanc
 - For direct property listing requests: Use enhanced_property_search and stop
 - Output **only JSON** for property listings when requested
 - Each listing must include:
-    {
+    {{
       "name": "property name",
       "snippet": "property description", 
       "url": "property URL",
@@ -304,7 +303,7 @@ You are an enhanced Housing Chatbot Orchestrator for Singapore housing assistanc
       "rooms": 0,
       "location": "location",
       "ranking_reason": "reason for ranking"
-    }
+    }}
 - After JSON, provide brief human-readable summary
 - Do NOT call multiple search tools for the same query
 
@@ -327,7 +326,16 @@ You are an enhanced Housing Chatbot Orchestrator for Singapore housing assistanc
 - Validate financial calculations when tools are available
 - Provide realistic timelines and expectations
 - Consider Singapore-specific regulations (TDSR, CPF usage, citizenship requirements)
-""",
+"""
+
+# Enhanced orchestrator with comprehensive capabilities
+orchestrator = Agent(
+    system_prompt=system_prompt_template.format(
+        consolidated_status='✅ Active' if CONSOLIDATED_TOOLS_AVAILABLE else '❌ Not Available',
+        aws_status='✅ Available' if AWS_RAG_AVAILABLE else '❌ Not Available',
+        decision_status='✅ Available' if DECISION_AGENT_AVAILABLE else '❌ Not Available',
+        agent_status='✅ Available' if AGENTS_AVAILABLE else '❌ Not Available'
+    ),
     tools=available_tools
 )
 
